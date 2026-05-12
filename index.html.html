@@ -899,7 +899,19 @@ function saveOP() {
   } else {
     var first=$('op-fn').value.trim(), last=$('op-fl').value.trim();
     if(!first||!last){toast('Escribe nombre y apellido del padre/madre','w');$('op-fn').focus();return;}
-    var pos=smartPos(S.opRelType==='child'?'parent':'spouse', S.opRelType==='child'?S.opChildId:S.opAnchorId);
+    // Place new parent next to the existing parent (S.opAnchorId) at same Y level
+    var anchor2 = S.ps.find(function(p){return p.id===S.opAnchorId;});
+    var pos;
+    if(anchor2){
+      // Place to the right of anchor at same Y
+      var sameY = anchor2.y||0;
+      var rightmost = S.ps.filter(function(p){return Math.abs((p.y||0)-sameY)<60;})
+        .map(function(p){return(p.x||0);});
+      var newX = rightmost.length ? Math.max.apply(null,rightmost)+175 : (anchor2.x||0)+175;
+      pos = {x:newX, y:sameY};
+    } else {
+      pos = smartPos('spouse', S.opAnchorId);
+    }
     var np={id:'p'+Date.now(),x:pos.x,y:pos.y,first:first,last:last,
       gender:$('op-gen').value,deceased:false,photo:null};
     S.ps.push(np);
