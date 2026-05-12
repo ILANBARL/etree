@@ -361,13 +361,22 @@ html{height:100%}
       <div style="text-align:center;font-size:12px;color:#7a7268;margin-bottom:12px">&#8212; o crear nuevo &#8212;</div>
       <div style="background:#f7f3ee;border-radius:10px;padding:12px;border:1px solid #d4cfc8">
         <div class="fr">
-          <div class="fg" style="margin-bottom:0"><label>Nombre(s) *</label><input type="text" id="op-fn" autocapitalize="words"></div>
-          <div class="fg" style="margin-bottom:0"><label>Apellido(s) *</label><input type="text" id="op-fl" autocapitalize="words"></div>
+          <div class="fg" style="margin-bottom:8px"><label>Nombre(s) *</label><input type="text" id="op-fn" autocapitalize="words"></div>
+          <div class="fg" style="margin-bottom:8px"><label>Apellido(s) *</label><input type="text" id="op-fl" autocapitalize="words"></div>
         </div>
-        <div class="fg" style="margin-top:10px;margin-bottom:0">
+        <div class="fr">
+          <div class="fg" style="margin-bottom:8px"><label>Apodo</label><input type="text" id="op-nick"></div>
+          <div class="fg" style="margin-bottom:8px"><label>Nombre hebreo</label><input type="text" id="op-heb"></div>
+        </div>
+        <div class="fg" style="margin-bottom:8px">
           <label>G&#233;nero</label>
           <select id="op-gen"><option value="">Sin especificar</option><option value="M">Masculino</option><option value="F">Femenino</option></select>
         </div>
+        <div class="fr">
+          <div class="fg" style="margin-bottom:8px"><label>Nacimiento</label><input type="date" id="op-bdate"></div>
+          <div class="fg" style="margin-bottom:8px"><label>Lugar</label><input type="text" id="op-bplace" placeholder="Ciudad, Pa&#237;s"></div>
+        </div>
+        <div class="fg" style="margin-bottom:0"><label>Notas</label><textarea id="op-notes" style="min-height:40px"></textarea></div>
       </div>
     </div>
     <div class="modal-foot" style="justify-content:space-between">
@@ -551,6 +560,12 @@ function showApp() {
   updHdr();
   updLim();
   renderAll();
+  // Scroll to first person added
+  setTimeout(function(){
+    if(S.ps.length>0){
+      scrollToId(S.ps[0].id);
+    }
+  },500);
   try {
     if (!localStorage.getItem('etree_tut')) {
       openModal('helpmo');
@@ -633,7 +648,7 @@ function setSI(st) {
 function smartPos(relType, anchorId) {
   var anchor = anchorId ? S.ps.find(function(p){return p.id===anchorId;}) : null;
   if (!anchor) {
-    if (!S.ps.length) return {x:800, y:800};
+    if (!S.ps.length) return {x:160, y:160};
     var l = S.ps[S.ps.length-1];
     var nx = (l.x||0)+GAP_H, ny = l.y||0;
     if (nx > 1400) { nx=80; ny+=GAP_V; }
@@ -851,7 +866,9 @@ function savePer() {
       }
     } else {
       toast('Persona agregada \u2713','ok');
+      var newId=np.id;
       closeModal('pmo'); closeDet(); renderAll(); autoSave();
+      setTimeout(function(){scrollToId(newId);},400);
     }
   }
 }
@@ -868,7 +885,10 @@ function showOtherParent(childId, relType, anchorId) {
   var nm=child?child.first+' '+child.last:'';
   $('op-name').textContent=nm; $('op-name2').textContent=nm;
   $('op-srch').value=''; $('op-res').style.display='none';
-  $('op-sel').style.display='none'; $('op-fn').value=''; $('op-fl').value=''; $('op-gen').value='';
+  $('op-sel').style.display='none';
+  ['op-fn','op-fl','op-nick','op-heb','op-bplace','op-notes'].forEach(function(id){var e=$(id);if(e)e.value='';});
+  $('op-gen').value='';
+  if($('op-bdate'))$('op-bdate').value='';
   var mo=$('opmo'); mo.style.display='flex'; mo.style.alignItems='center'; mo.style.justifyContent='center';
   document.body.style.overflow='hidden';
 }
@@ -892,26 +912,91 @@ function clearOPSel(){S.opSelId=null;$('op-sel').style.display='none';}
 
 function saveOP() {
   var otherParentId=null;
+
   if(S.opSelId){
+    // Use existing person
     otherParentId=S.opSelId;
+    // Make sure they are at same Y level as anchor
+    var existingP=S.ps.find(function(p){return p.id===S.opSelId;});
+    var anchorP=S.ps.find(function(p){return p.id===S.opAnchorId;});
+    if(existingP&&anchorP){
+      existingP.y=anchorP.y;
+      if(Math.abs((existingP.x||0)-(anchorP.x||0))<10){
+        existingP.x=(anchorP.x||0)+175;
+      }
+    }
   } else {
     var first=$('op-fn').value.trim(), last=$('op-fl').value.trim();
-    if(!first||!last){toast('Escribe nombre y apellido del padre/madre','w');$('op-fn').focus();return;}
-    var pos=smartPos(S.opRelType==='child'?'parent':'spouse', S.opRelType==='child'?S.opChildId:S.opAnchorId);
-    var np={id:'p'+Date.now(),x:pos.x,y:pos.y,first:first,last:last,
-      gender:$('op-gen').value,deceased:false,photo:null};
+    if(!first||!last){toast('Escribe nombre y apellido','w');$('op-fn').focus();return;}
+
+    // Calculate position based on actual positions of existing cards
+    var parent1=S.ps.find(function(p){return p.id===S.opAnchorId;});
+    var child=S.ps.find(function(p){return p.id===S.opChildId;});
+    var posX, posY;
+    if(parent1){
+      // Place at SAME Y as parent1, to the right
+      posY = parent1.y||0;
+      posX = (parent1.x||0) + 175;
+      // Make sure child is BELOW both parents
+      if(child){
+        var midX = ((parent1.x||0) + posX + CW) / 2;
+        // If child is not below, move it below
+        var expectedChildY = posY + GAP_V;
+        if(Math.abs((child.y||0) - expectedChildY) > 60){
+          child.y = expectedChildY;
+          child.x = midX - CW/2;
+        }
+      }
+    } else if(child){
+      // Place above child
+      posX = (child.x||0);
+      posY = (child.y||0) - GAP_V;
+    } else {
+      posX = 300; posY = 200;
+    }
+
+    var np={id:'p'+Date.now(),x:posX,y:posY,
+      first:first,last:last,
+      gender:$('op-gen').value,
+      nick:$('op-nick')?$('op-nick').value.trim():'',
+      heb:$('op-heb')?$('op-heb').value.trim():'',
+      bdate:$('op-bdate')?$('op-bdate').value:'',
+      bplace:$('op-bplace')?$('op-bplace').value.trim():'',
+      notes:$('op-notes')?$('op-notes').value.trim():'',
+      deceased:false,photo:null};
     S.ps.push(np);
     otherParentId=np.id;
   }
+
+  // Connect: anchor and otherParent are spouses
+  // Both are parents of the child
+  var childId, parent1Id;
   if(S.opRelType==='child'){
-    addRel(S.opAnchorId,otherParentId,'spouse');
-    addRel(otherParentId,S.opChildId,'parent');
+    // We added a child from anchor - anchor is parent1, other is parent2
+    childId=S.opChildId;
+    parent1Id=S.opAnchorId;
   } else {
-    addRel(S.opChildId,otherParentId,'spouse');
-    addRel(otherParentId,S.opAnchorId,'parent');
+    // We added a parent to anchor - anchor is child, opChildId is parent1
+    childId=S.opAnchorId;
+    parent1Id=S.opChildId;
   }
-  $('opmo').style.display='none'; document.body.style.overflow='';
-  renderAll(); autoSave(); toast('Familia conectada \u2713','ok');
+
+  // Add spouse relation between the two parents
+  addRel(parent1Id, otherParentId, 'spouse');
+  // Add parent-child for both parents
+  addRel(parent1Id, childId, 'parent');
+  addRel(otherParentId, childId, 'parent');
+
+  $('opmo').style.display='none';
+  document.body.style.overflow='';
+  renderAll();
+  autoSave();
+  // Scroll to show the family
+  setTimeout(function(){
+    var p=S.ps.find(function(x){return x.id===parent1Id;});
+    if(p)scrollToId(parent1Id);
+  },400);
+  toast('Familia conectada ✓','ok');
 }
 
 function skipOtherParent(){
@@ -953,27 +1038,19 @@ function renderAll() {
   var em=$('empty');
   if(!S.ps.length){em.classList.remove('hidden');$('tree-svg').innerHTML='';canvas.style.width=canvas.style.height='';$('stp').textContent='0';return;}
   em.classList.add('hidden'); $('stp').textContent=S.ps.length; updLim();
-  // Add large padding so tree can grow in all directions
-  var PAD=600;
-  var minX=1e9,minY=1e9,maxX=0,maxY=0;
+  var maxX2=0,maxY2=0;
   S.ps.forEach(function(p){
-    minX=Math.min(minX,p.x||0); minY=Math.min(minY,p.y||0);
-    maxX=Math.max(maxX,(p.x||0)+CW); maxY=Math.max(maxY,(p.y||0)+CBH);
+    maxX2=Math.max(maxX2,(p.x||0)+CW+300);
+    maxY2=Math.max(maxY2,(p.y||0)+CBH+300);
   });
-  // If cards are near top/left edges, shift everything down/right
-  var shiftX=0, shiftY=0;
-  if(minX < PAD){ shiftX = PAD - minX; }
-  if(minY < PAD){ shiftY = PAD - minY; }
-  if(shiftX>0||shiftY>0){
-    S.ps.forEach(function(p){p.x=(p.x||0)+shiftX; p.y=(p.y||0)+shiftY;});
-    autoSave();
-  }
-  var w=Math.max(3000, maxX+shiftX+PAD);
-  var h=Math.max(3000, maxY+shiftY+PAD);
-  canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  canvas.style.width=Math.max(2000,maxX2)+'px';
+  canvas.style.height=Math.max(2000,maxY2)+'px';
   var svg=$('tree-svg'); svg.setAttribute('width',maxX); svg.setAttribute('height',maxY);
   S.ps.forEach(function(p){var c=mkCard(p);canvas.appendChild(c);if(!S.ro)mkDrag(c,p);});
-  requestAnimationFrame(function(){drawLines(svg);});
+  requestAnimationFrame(function(){
+    drawLines(svg);
+    setTimeout(function(){ centerView(); }, 100);
+  });
 }
 
 function mkCard(p) {
@@ -1161,12 +1238,42 @@ function closeDet(){
 // ─── ZOOM ────────────────────────────────────────────────
 function zIn(){S.zoom=Math.min(2.5,Math.round((S.zoom+0.15)*100)/100);apZ();}
 function zOut(){S.zoom=Math.max(0.2,Math.round((S.zoom-0.15)*100)/100);apZ();}
+function scrollToId(id){
+  var p=S.ps.find(function(x){return x.id===id;}); if(!p)return;
+  var tw=$('tree-wrap');
+  var cx=(p.x||0)*S.zoom - tw.clientWidth/2 + CW/2;
+  var cy=(p.y||0)*S.zoom - tw.clientHeight/2 + CBH/2;
+  tw.scrollLeft=Math.max(0,cx);
+  tw.scrollTop=Math.max(0,cy);
+  // Highlight card briefly
+  var card=$('c_'+id);
+  if(card){
+    card.style.boxShadow='0 0 0 4px rgba(90,122,90,.6)';
+    setTimeout(function(){card.style.boxShadow='';},2000);
+  }
+}
+
+function centerView(){
+  if(!S.ps.length) return;
+  var tw=$('tree-wrap');
+  var minX=1e9,minY=1e9,maxX=0,maxY=0;
+  S.ps.forEach(function(p){
+    minX=Math.min(minX,p.x||0); minY=Math.min(minY,p.y||0);
+    maxX=Math.max(maxX,(p.x||0)+CW); maxY=Math.max(maxY,(p.y||0)+CBH);
+  });
+  var cx=(minX+maxX)/2*S.zoom - tw.clientWidth/2;
+  var cy=(minY+maxY)/2*S.zoom - tw.clientHeight/2;
+  tw.scrollLeft=Math.max(0,cx);
+  tw.scrollTop=Math.max(0,cy);
+}
+
 function fitView(){
   if(!S.ps.length){S.zoom=1;apZ();return;}
   var tw=$('tree-wrap'),mn={x:1e9,y:1e9},mx={x:0,y:0};
   S.ps.forEach(function(p){mn.x=Math.min(mn.x,p.x||0);mn.y=Math.min(mn.y,p.y||0);mx.x=Math.max(mx.x,(p.x||0)+CW);mx.y=Math.max(mx.y,(p.y||0)+CBH);});
   S.zoom=Math.min(1,Math.round(Math.min(tw.clientWidth/(mx.x-mn.x+80),tw.clientHeight/(mx.y-mn.y+80))*100)/100);
-  apZ(); $('tree-wrap').scrollTo(0,0);
+  apZ();
+  setTimeout(function(){ centerView(); }, 50);
 }
 function apZ(){$('tree-canvas').style.transform='scale('+S.zoom+')';$('tree-canvas').style.transformOrigin='top left';$('zpct').textContent=Math.round(S.zoom*100)+'%';}
 
