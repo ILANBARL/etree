@@ -502,7 +502,7 @@ function pbot(p){return(p.y||0)+CBH}
 function ptop(p){return p.y||0}
 function prgt(p){return(p.x||0)+CW}
 function plft(p){return p.x||0}
-function fmt(d){if(!d)return'';return new Date(d).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}
+function fmt(d){if(!d)return'';var dt=new Date(d);var dd=String(dt.getDate()).padStart(2,'0');var mm=String(dt.getMonth()+1).padStart(2,'0');var yyyy=dt.getFullYear();return dd+'/'+mm+'/'+yyyy;}
 function calcAge(b,d,dec){if(!b)return'';var e=dec&&d?new Date(d):new Date();var a=Math.floor((e-new Date(b))/31557600000);return a>0?a+' a\u00f1os':''}
 function getLimit(){if(!S.user||S.user.guest)return 0;if(S.user.email===ADMIN)return PLANS.admin;if(S.user.plan==='familiar')return PLANS.familiar;if(S.user.plan==='personal')return PLANS.personal;return PLANS.free}
 
