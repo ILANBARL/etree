@@ -502,7 +502,7 @@ function pbot(p){return(p.y||0)+CBH}
 function ptop(p){return p.y||0}
 function prgt(p){return(p.x||0)+CW}
 function plft(p){return p.x||0}
-function fmt(d){if(!d)return'';var dt=new Date(d);var dd=String(dt.getDate()).padStart(2,'0');var mm=String(dt.getMonth()+1).padStart(2,'0');var yyyy=dt.getFullYear();return dd+'/'+mm+'/'+yyyy;}
+function fmt(d){if(!d)return'';var parts=d.split('-');if(parts.length===3)return parts[2]+'/'+parts[1]+'/'+parts[0];return d;}
 function calcAge(b,d,dec){if(!b)return'';var e=dec&&d?new Date(d):new Date();var a=Math.floor((e-new Date(b))/31557600000);return a>0?a+' a\u00f1os':''}
 function getLimit(){if(!S.user||S.user.guest)return 0;if(S.user.email===ADMIN)return PLANS.admin;if(S.user.plan==='familiar')return PLANS.familiar;if(S.user.plan==='personal')return PLANS.personal;return PLANS.free}
 
@@ -1058,8 +1058,8 @@ function mkCard(p) {
   var cls='card'; if(p.deceased)cls+=' d'; else if(p.gender==='F')cls+=' f';
   card.className=cls; card.id='c_'+p.id;
   card.style.left=(p.x||0)+'px'; card.style.top=(p.y||0)+'px';
-  var by=p.bdate?new Date(p.bdate).getFullYear():'';
-  var dy=p.ddate?new Date(p.ddate).getFullYear():'';
+  var by=p.bdate?p.bdate.split('-')[0]:'';
+  var dy=p.ddate?p.ddate.split('-')[0]:'';
   var dates=by?(dy?by+' \u2013 '+dy:'n. '+by):'';
   var sc=p.deceased?'#aaa':(p.gender==='F'?'#e890a8':'#5a7a5a');
   var ic='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
