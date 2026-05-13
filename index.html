@@ -495,7 +495,7 @@ var RL = {parent:'Padre/Madre',child:'Hijo/a',spouse:'C\u00f3nyuge',
   'spouse-div':'Ex-c\u00f3nyuge',sibling:'Hermano/a',grandparent:'Abuelo/a',
   grandchild:'Nieto/a',uncle:'T\u00edo/a',cousin:'Primo/a'};
 var CW=134, CMH=80, CBH=152, LC='#c4a35a';
-var GAP_V=210, GAP_H=175;
+var GAP_V=230, GAP_H=210;
 
 // ─── STATE ───────────────────────────────────────────────
 var S = {
@@ -1033,21 +1033,22 @@ function saveOP() {
   var par2obj = S.ps.find(function(p){return p.id===otherParentId;});
   var childobj = S.ps.find(function(p){return p.id===childId;});
   if(par1obj && par2obj && childobj){
-    // Parents at same Y, child below
-    var parentY = Math.min(par1obj.y||0, par2obj.y||0);
-    // If child is above or same level as parents, fix it
-    if((childobj.y||0) <= parentY + 60){
-      childobj.y = parentY + GAP_V;
-    }
-    // Align both parents at same Y
+    // Step 1: Fix parent Y - must be ABOVE child
+    var childY = childobj.y||0;
+    var parentY = childY - GAP_V;
+    if(parentY < 50) parentY = 50;
+
+    // Step 2: Position parents side by side at parentY
     par1obj.y = parentY;
     par2obj.y = parentY;
-    // Place par2 to the right of par1 if not already
-    if(Math.abs((par1obj.x||0)-(par2obj.x||0)) < 10){
-      par2obj.x = (par1obj.x||0) + GAP_H;
-    }
-    // Center child between parents
-    childobj.x = ((par1obj.x||0) + (par2obj.x||0)) / 2;
+
+    // Step 3: Separate parents horizontally with enough gap
+    par1obj.x = (par1obj.x||200);
+    par2obj.x = (par1obj.x||200) + GAP_H;
+
+    // Step 4: Center child under both parents
+    childobj.x = ((par1obj.x||0) + (par2obj.x||0)) / 2 - CW/2;
+    childobj.y = parentY + GAP_V;
   }
 
   $('opmo').style.display='none';
