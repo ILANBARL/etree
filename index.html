@@ -265,7 +265,7 @@ html{height:100%}
         <select id="fg2"><option value="">Sin especificar</option><option value="M">Masculino</option><option value="F">Femenino</option></select>
       </div>
       <div class="fr">
-        <div class="fg"><label>Nacimiento</label><input type="date" id="fbd"></div>
+        <div class="fg"><label>Nacimiento</label><input type="text" id="fbd" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
         <div class="fg"><label>Lugar</label><input type="text" id="fbp" placeholder="Ciudad, Pa&#237;s"></div>
       </div>
       <div class="deceased-row" id="dec-row" onclick="togDec()">
@@ -373,8 +373,20 @@ html{height:100%}
           <select id="op-gen"><option value="">Sin especificar</option><option value="M">Masculino</option><option value="F">Femenino</option></select>
         </div>
         <div class="fr">
-          <div class="fg" style="margin-bottom:8px"><label>Nacimiento</label><input type="date" id="op-bdate"></div>
+          <div class="fg" style="margin-bottom:8px"><label>Nacimiento (dd/mm/aaaa)</label>
+            <input type="text" id="op-bdate" placeholder="15/03/1935" maxlength="10" oninput="fmtDateInput(this)">
+          </div>
           <div class="fg" style="margin-bottom:8px"><label>Lugar</label><input type="text" id="op-bplace" placeholder="Ciudad, Pa&#237;s"></div>
+        </div>
+        <div class="deceased-row" id="op-dec-row" onclick="togOpDec()" style="margin-top:8px;margin-bottom:8px">
+          <input type="checkbox" id="op-deceased" onclick="event.stopPropagation();togOpDec()">
+          <span>&#127992; Ha fallecido</span>
+        </div>
+        <div class="death-area" id="op-daf">
+          <div class="fr">
+            <div class="fg" style="margin-bottom:0"><label>Defunci&#243;n (dd/mm/aaaa)</label><input type="text" id="op-ddate" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
+            <div class="fg" style="margin-bottom:0"><label>Lugar</label><input type="text" id="op-dplace"></div>
+          </div>
         </div>
         <div class="fg" style="margin-bottom:0"><label>Notas</label><textarea id="op-notes" style="min-height:40px"></textarea></div>
       </div>
@@ -502,8 +514,37 @@ function pbot(p){return(p.y||0)+CBH}
 function ptop(p){return p.y||0}
 function prgt(p){return(p.x||0)+CW}
 function plft(p){return p.x||0}
-function fmt(d){if(!d)return'';var parts=d.split('-');if(parts.length===3)return parts[2]+'/'+parts[1]+'/'+parts[0];return d;}
-function calcAge(b,d,dec){if(!b)return'';var e=dec&&d?new Date(d):new Date();var a=Math.floor((e-new Date(b))/31557600000);return a>0?a+' a\u00f1os':''}
+function fmtDateInput(el){
+  // Auto-format as user types: dd/mm/yyyy
+  var v=el.value.replace(/[^0-9]/g,'');
+  if(v.length>=3&&v.length<=4) v=v.substring(0,2)+'/'+v.substring(2);
+  else if(v.length>=5) v=v.substring(0,2)+'/'+v.substring(2,4)+'/'+v.substring(4,8);
+  el.value=v;
+}
+
+function toISO(d){
+  // Convert dd/mm/yyyy to yyyy-mm-dd for internal use
+  if(!d)return'';
+  var p=d.split('/');
+  if(p.length===3&&p[2].length===4) return p[2]+'-'+p[1]+'-'+p[0];
+  return d;
+}
+
+function fmt(d){
+  // d can be dd/mm/yyyy or yyyy-mm-dd
+  if(!d)return'';
+  if(d.indexOf('/')>=0)return d; // already dd/mm/yyyy
+  var parts=d.split('-');
+  if(parts.length===3)return parts[2]+'/'+parts[1]+'/'+parts[0];
+  return d;
+}
+function calcAge(b,d,dec){
+  if(!b)return'';
+  var bi=toISO(b), di=toISO(d);
+  var e=dec&&di?new Date(di):new Date();
+  var a=Math.floor((e-new Date(bi))/31557600000);
+  return a>0?a+' años':'';
+}
 function getLimit(){if(!S.user||S.user.guest)return 0;if(S.user.email===ADMIN)return PLANS.admin;if(S.user.plan==='familiar')return PLANS.familiar;if(S.user.plan==='personal')return PLANS.personal;return PLANS.free}
 
 // ─── LOGIN ───────────────────────────────────────────────
@@ -656,26 +697,22 @@ function smartPos(relType, anchorId) {
   }
   var ax=anchor.x||0, ay=anchor.y||0;
   if (relType==='parent'||relType==='grandparent') {
-    // Find existing parents of this child to align with them
     var existingParentIds = S.rs
       .filter(function(r){return(r.type==='parent'&&r.t===anchorId)||(r.type==='child'&&r.f===anchorId);})
       .map(function(r){return r.type==='parent'?r.f:r.t;});
     var existingParents = existingParentIds
-      .map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
-    if(existingParents.length){
-      // Place next to existing parent at same Y level
+      .map(function(id){return S.ps.find(function(p){return p.id===id;});})
+      .filter(Boolean);
+    // Parent Y must always be ABOVE anchor
+    var parentY = ay - GAP_V;
+    if(parentY < 50) parentY = 50;
+    if(existingParents.length > 0){
       var ep = existingParents[0];
-      var epY = ep.y||0;
-      var taken = S.ps.filter(function(p){return Math.abs((p.y||0)-epY)<60;}).map(function(p){return p.x||0;});
-      var nx = taken.length ? Math.max.apply(null,taken)+GAP_H : (ep.x||0)+GAP_H;
-      return {x:nx, y:epY};
+      return {x:(ep.x||0)+GAP_H, y:ep.y||parentY};
     }
-    // No existing parents - place above anchor
-    var usedY = ay - GAP_V;
-    var taken2 = S.ps.filter(function(p){return Math.abs((p.y||0)-usedY)<60;}).map(function(p){return p.x||0;});
-    var nx2 = taken2.length ? Math.max.apply(null,taken2)+GAP_H : ax;
-    return {x:nx2, y:usedY};
+    return {x:ax, y:parentY};
   }
+
   if (relType==='child'||relType==='grandchild') {
     var usedY2 = ay + GAP_V;
     var taken2 = S.ps.filter(function(p){return Math.abs((p.y||0)-usedY2)<60;}).map(function(p){return p.x||0;});
@@ -886,9 +923,13 @@ function showOtherParent(childId, relType, anchorId) {
   $('op-name').textContent=nm; $('op-name2').textContent=nm;
   $('op-srch').value=''; $('op-res').style.display='none';
   $('op-sel').style.display='none';
-  ['op-fn','op-fl','op-nick','op-heb','op-bplace','op-notes'].forEach(function(id){var e=$(id);if(e)e.value='';});
+  ['op-fn','op-fl','op-nick','op-heb','op-bplace','op-notes','op-dplace'].forEach(function(id){var e=$(id);if(e)e.value='';});
   $('op-gen').value='';
   if($('op-bdate'))$('op-bdate').value='';
+  if($('op-ddate'))$('op-ddate').value='';
+  if($('op-deceased')){$('op-deceased').checked=false;}
+  if($('op-dec-row'))$('op-dec-row').classList.remove('on');
+  if($('op-daf'))$('op-daf').classList.remove('show');
   var mo=$('opmo'); mo.style.display='flex'; mo.style.alignItems='center'; mo.style.justifyContent='center';
   document.body.style.overflow='hidden';
 }
@@ -939,13 +980,11 @@ function saveOP() {
       posX = (parent1.x||0) + 175;
       // Make sure child is BELOW both parents
       if(child){
-        var midX = ((parent1.x||0) + posX + CW) / 2;
-        // If child is not below, move it below
-        var expectedChildY = posY + GAP_V;
-        if(Math.abs((child.y||0) - expectedChildY) > 60){
-          child.y = expectedChildY;
-          child.x = midX - CW/2;
-        }
+        var expectedChildY2 = posY + GAP_V;
+        // Always move child below parents
+        child.y = expectedChildY2;
+        // Center child between both parents
+        child.x = ((parent1.x||0) + posX) / 2;
       }
     } else if(child){
       // Place above child
@@ -963,29 +1002,53 @@ function saveOP() {
       bdate:$('op-bdate')?$('op-bdate').value:'',
       bplace:$('op-bplace')?$('op-bplace').value.trim():'',
       notes:$('op-notes')?$('op-notes').value.trim():'',
-      deceased:false,photo:null};
+      deceased:$('op-deceased')?$('op-deceased').checked:false,
+      ddate:$('op-ddate')?$('op-ddate').value:'',
+      dplace:$('op-dplace')?$('op-dplace').value.trim():'',
+      photo:null};
     S.ps.push(np);
     otherParentId=np.id;
   }
 
-  // Connect: anchor and otherParent are spouses
-  // Both are parents of the child
+  // Connect all relationships correctly
   var childId, parent1Id;
   if(S.opRelType==='child'){
-    // We added a child from anchor - anchor is parent1, other is parent2
-    childId=S.opChildId;
-    parent1Id=S.opAnchorId;
+    // Added child FROM anchor: anchor=parent1, opChildId=child
+    childId = S.opChildId;
+    parent1Id = S.opAnchorId;
   } else {
-    // We added a parent to anchor - anchor is child, opChildId is parent1
-    childId=S.opAnchorId;
-    parent1Id=S.opChildId;
+    // Added parent TO anchor: anchor=child, opChildId=new parent
+    childId = S.opAnchorId;
+    parent1Id = S.opChildId;
   }
 
-  // Add spouse relation between the two parents
+  // Spouse relation between the two parents
   addRel(parent1Id, otherParentId, 'spouse');
-  // Add parent-child for both parents
+  // Parent-child relations (addRel won't duplicate)
   addRel(parent1Id, childId, 'parent');
   addRel(otherParentId, childId, 'parent');
+
+  // Fix positions: ensure parents are ABOVE child
+  var par1obj = S.ps.find(function(p){return p.id===parent1Id;});
+  var par2obj = S.ps.find(function(p){return p.id===otherParentId;});
+  var childobj = S.ps.find(function(p){return p.id===childId;});
+  if(par1obj && par2obj && childobj){
+    // Parents at same Y, child below
+    var parentY = Math.min(par1obj.y||0, par2obj.y||0);
+    // If child is above or same level as parents, fix it
+    if((childobj.y||0) <= parentY + 60){
+      childobj.y = parentY + GAP_V;
+    }
+    // Align both parents at same Y
+    par1obj.y = parentY;
+    par2obj.y = parentY;
+    // Place par2 to the right of par1 if not already
+    if(Math.abs((par1obj.x||0)-(par2obj.x||0)) < 10){
+      par2obj.x = (par1obj.x||0) + GAP_H;
+    }
+    // Center child between parents
+    childobj.x = ((par1obj.x||0) + (par2obj.x||0)) / 2;
+  }
 
   $('opmo').style.display='none';
   document.body.style.overflow='';
@@ -1058,8 +1121,8 @@ function mkCard(p) {
   var cls='card'; if(p.deceased)cls+=' d'; else if(p.gender==='F')cls+=' f';
   card.className=cls; card.id='c_'+p.id;
   card.style.left=(p.x||0)+'px'; card.style.top=(p.y||0)+'px';
-  var by=p.bdate?p.bdate.split('-')[0]:'';
-  var dy=p.ddate?p.ddate.split('-')[0]:'';
+  var by=p.bdate?(p.bdate.indexOf('/')>=0?p.bdate.split('/')[2]:p.bdate.split('-')[0]):'';
+  var dy=p.ddate?(p.ddate.indexOf('/')>=0?p.ddate.split('/')[2]:p.ddate.split('-')[0]):'';
   var dates=by?(dy?by+' \u2013 '+dy:'n. '+by):'';
   var sc=p.deceased?'#aaa':(p.gender==='F'?'#e890a8':'#5a7a5a');
   var ic='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
