@@ -1045,7 +1045,7 @@ function renderAll() {
   });
   canvas.style.width=Math.max(2000,maxX2)+'px';
   canvas.style.height=Math.max(2000,maxY2)+'px';
-  var svg=$('tree-svg'); svg.setAttribute('width',maxX); svg.setAttribute('height',maxY);
+  var svg=$('tree-svg'); svg.setAttribute('width',Math.max(2000,maxX2)); svg.setAttribute('height',Math.max(2000,maxY2));
   S.ps.forEach(function(p){var c=mkCard(p);canvas.appendChild(c);if(!S.ro)mkDrag(c,p);});
   requestAnimationFrame(function(){
     drawLines(svg);
