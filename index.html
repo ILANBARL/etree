@@ -720,9 +720,16 @@ function smartPos(relType, anchorId) {
   }
 
   if (relType==='child'||relType==='grandchild') {
-    var usedY2 = ay + GAP_V;
-    var taken2 = S.ps.filter(function(p){return Math.abs((p.y||0)-usedY2)<60;}).map(function(p){return p.x||0;});
-    return {x: taken2.length ? Math.max.apply(null,taken2)+GAP_H : ax, y: usedY2};
+    var childY3 = ay + GAP_V;
+    // Find all existing children at this Y level
+    var existingAtY = S.ps.filter(function(p){
+      return p.id!==anchorId && Math.abs((p.y||0)-childY3)<80;
+    });
+    if(existingAtY.length > 0){
+      var maxX3 = Math.max.apply(null, existingAtY.map(function(p){return(p.x||0)+CW;}));
+      return {x: maxX3 + 20, y: childY3};
+    }
+    return {x: ax, y: childY3};
   }
   if (relType==='spouse'||relType==='spouse-div') {
     var taken3 = S.ps.filter(function(p){return Math.abs((p.y||0)-ay)<60&&(p.x||0)>ax;}).map(function(p){return p.x||0;});
@@ -1067,13 +1074,27 @@ function saveOP() {
     par1obj.y = parentY;
     par2obj.y = parentY;
 
-    // Step 3: Separate parents horizontally with enough gap
-    par1obj.x = (par1obj.x||200);
-    par2obj.x = (par1obj.x||200) + GAP_H;
+    // Step 3: Keep par1 position, place par2 to the right
+    var p1x = par1obj.x||200;
+    par2obj.x = p1x + GAP_H;
+    par1obj.x = p1x;
 
-    // Step 4: Center child under both parents
-    childobj.x = ((par1obj.x||0) + (par2obj.x||0)) / 2 - CW/2;
-    childobj.y = parentY + GAP_V;
+    // Step 4: Find ALL children and center them under both parents
+    var allChildren = S.rs.filter(function(r){
+      return r.type==='parent'&&(r.f===parent1Id||r.f===otherParentId);
+    }).map(function(r){return S.ps.find(function(p){return p.id===r.t;});}).filter(Boolean);
+    // Remove duplicates
+    var seen={};
+    allChildren = allChildren.filter(function(ch){
+      if(seen[ch.id])return false; seen[ch.id]=true; return true;
+    });
+    var midX = (pcx(par1obj) + pcx(par2obj)) / 2;
+    var totalW = allChildren.length * CW + (allChildren.length-1) * 20;
+    var startX = midX - totalW/2;
+    allChildren.forEach(function(ch, i){
+      ch.x = startX + i*(CW+20);
+      ch.y = parentY + GAP_V;
+    });
   }
 
   $('opmo').style.display='none';
