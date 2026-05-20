@@ -783,11 +783,33 @@ function smartPos(relType, anchorId) {
     return {x: ax, y: childY3};
   }
   if (relType==='spouse'||relType==='spouse-div') {
-    var taken3 = S.ps.filter(function(p){return Math.abs((p.y||0)-ay)<60&&(p.x||0)>ax;}).map(function(p){return p.x||0;});
-    return {x: taken3.length ? Math.max.apply(null,taken3)+GAP_H : ax+GAP_H, y: ay};
+    var siblingsAtY = S.ps.filter(function(p){
+      return p.id!==anchorId && Math.abs((p.y||0)-ay)<80;
+    }).sort(function(a,b){return (a.x||0)-(b.x||0);});
+
+    var rightSibs = siblingsAtY.filter(function(p){return (p.x||0)>ax;});
+    var SPOUSE_GAP = GAP_H;
+    var SIBLING_GAP = GAP_H * 2;
+
+    var spouseX = ax + SPOUSE_GAP;
+
+    // Push right siblings to make double gap room
+    if(rightSibs.length > 0){
+      var needed = spouseX + CW + SIBLING_GAP;
+      var shift = needed - (rightSibs[0].x||0);
+      if(shift > 0){
+        rightSibs.forEach(function(p){ p.x = (p.x||0) + shift; });
+      }
+    }
+    return {x: spouseX, y: ay};
   }
-  var taken4 = S.ps.filter(function(p){return Math.abs((p.y||0)-ay)<60&&(p.x||0)>ax;}).map(function(p){return p.x||0;});
-  return {x: taken4.length ? Math.max.apply(null,taken4)+GAP_H : ax+GAP_H, y: ay};
+
+  if (relType==='sibling') {
+    return {x: ax + GAP_H, y: ay};
+  }
+
+  // Default
+  return {x: ax + GAP_H, y: ay};
 }
 
 // ─── ADD MENU ────────────────────────────────────────────
@@ -795,7 +817,7 @@ function openAddMenu(aid) {
   if (S.ro) { toast('Modo solo lectura','w'); return; }
   var lim = getLimit();
   if (S.ps.length >= lim) {
-    toast(lim===0?'Crea una cuenta para agregar':'L\u00edmite de '+lim+' personas. Actualiza tu plan.','w');
+    toast(lim===0?'Crea una cuenta para agregar':'Límite de '+lim+' personas. Actualiza tu plan.','w');
     if (lim > 0) openModal('addmenu');
     return;
   }
@@ -817,10 +839,7 @@ function openNewPerson() {
   openModal('pmo');
 }
 
-function closePmo() {
-  // Check if we were adding a new person that needs a parent
-  closeModal('pmo');
-}
+function closePmo() { closeModal('pmo'); }
 
 function openConnectExist() {
   closeModal('addmenu');
@@ -838,7 +857,7 @@ function searchConn(q) {
   if (!res.length) { cr.style.display='none'; return; }
   cr.innerHTML = res.map(function(p){
     var c=p.deceased?'#b0b0b0':(p.gender==='F'?'#e890a8':'#5a7a5a');
-    return'<div style="padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #d4cfc8;display:flex;align-items:center;gap:8px" onclick="selConn(\''+p.id+'\',\''+p.first+' '+p.last+'\')">'+
+    return'<div style="padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #d4cfc8;display:flex;align-items:center;gap:8px" onclick="selConn(''+p.id+'',''+p.first+' '+p.last+'')">'+
       '<div style="width:10px;height:10px;border-radius:50%;border:2px solid '+c+';flex-shrink:0"></div><span>'+p.first+' '+p.last+'</span></div>';
   }).join('');
   cr.style.display='block';
@@ -858,10 +877,10 @@ function pickCR(el) {
 }
 
 function saveConn() {
-  if (!S.connSelId||!S.connSelRel) { toast('Selecciona persona y relaci\u00f3n','w'); return; }
+  if (!S.connSelId||!S.connSelRel) { toast('Selecciona persona y relación','w'); return; }
   if (!S.aid) { toast('Sin persona de referencia','w'); return; }
   addRel(S.aid, S.connSelId, S.connSelRel);
-  closeModal('connmo'); renderAll(); autoSave(); toast('Conectado \u2713','ok');
+  closeModal('connmo'); renderAll(); autoSave(); toast('Conectado ✓','ok');
 }
 
 // ─── PERSON FORM ─────────────────────────────────────────
@@ -930,48 +949,41 @@ function savePer() {
   if (S.eid) {
     var i=S.ps.findIndex(function(p){return p.id===S.eid;});
     if(i>=0) S.ps[i]=Object.assign(S.ps[i],data);
-    toast('Actualizado \u2713','ok');
+    toast('Actualizado ✓','ok');
     closeModal('pmo'); closeDet(); renderAll(); autoSave();
   } else {
     var pos = smartPos(S.selRel, S.aid);
     var np = Object.assign({id:'p'+Date.now(), x:pos.x, y:pos.y}, data);
     S.ps.push(np);
     if (S.aid && S.selRel) {
-      // Normalize: always store as parent->child
       if(S.selRel==='parent'){
-        // np is PARENT of S.aid
         addRel(np.id, S.aid, 'parent');
       } else if(S.selRel==='child'){
-        // np is CHILD of S.aid  
         addRel(S.aid, np.id, 'parent');
       } else {
         addRel(S.aid, np.id, S.selRel);
       }
       closeModal('pmo'); closeDet(); renderAll(); autoSave();
-      // If sibling - ask about shared parents
       if(S.selRel==='sibling'){
         setTimeout(function(){showSibParents(np.id, S.aid);}, 400);
       }
+      if(S.selRel==='spouse'||S.selRel==='spouse-div'){
+        setTimeout(function(){askSpouseChildren(np.id, S.aid);}, 400);
+      }
       if (S.selRel==='child'||S.selRel==='parent') {
-        // Check if other parent already exists
         var otherParentExists = false;
         if(S.selRel==='parent'){
-          // We added a parent to S.aid - check if S.aid already has another parent
           var existingP = S.rs.filter(function(r){
-            return(r.type==='parent'&&r.t===S.aid)||(r.type==='child'&&r.f===S.aid);
-          }).map(function(r){return r.type==='parent'?r.f:r.t;})
-            .filter(function(id){return id!==np.id;});
+            return r.type==='parent'&&r.t===S.aid;
+          }).map(function(r){return r.f;}).filter(function(id){return id!==np.id;});
           if(existingP.length){
-            // Auto-connect as spouses
-            addRel(np.id, existingP[0], 'spouse');
             renderAll(); autoSave();
             toast('Familiar agregado y conectado ✓','ok');
             otherParentExists=true;
           }
         } else if(S.selRel==='child'){
-          // We added a child to S.aid - check if S.aid has a spouse
           var spouseRel = S.rs.find(function(r){
-            return(r.type==='spouse')&&(r.f===S.aid||r.t===S.aid);
+            return r.type==='spouse'&&(r.f===S.aid||r.t===S.aid);
           });
           if(spouseRel){
             var spouseId=spouseRel.f===S.aid?spouseRel.t:spouseRel.f;
@@ -988,7 +1000,7 @@ function savePer() {
         toast('Familiar agregado ✓','ok');
       }
     } else {
-      toast('Persona agregada \u2713','ok');
+      toast('Persona agregada ✓','ok');
       var newId=np.id;
       closeModal('pmo'); closeDet(); renderAll(); autoSave();
       setTimeout(function(){scrollToId(newId);},400);
@@ -997,7 +1009,6 @@ function savePer() {
 }
 
 function addRel(a,b,type) {
-  // Check exact match - don't block different parents with same child
   var exists = S.rs.find(function(r){
     return r.type===type && ((r.f===a&&r.t===b)||(r.f===b&&r.t===a));
   });
@@ -1031,7 +1042,7 @@ function searchOP(q) {
   if(!found.length){res.style.display='none';return;}
   res.innerHTML=found.map(function(p){
     var c=p.deceased?'#b0b0b0':(p.gender==='F'?'#e890a8':'#5a7a5a');
-    return'<div style="padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #d4cfc8;display:flex;align-items:center;gap:8px" onclick="selOP(\''+p.id+'\',\''+p.first+' '+p.last+'\')">'+
+    return'<div style="padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #d4cfc8;display:flex;align-items:center;gap:8px" onclick="selOP(''+p.id+'',''+p.first+' '+p.last+'')">'+
       '<div style="width:10px;height:10px;border-radius:50%;border:2px solid '+c+';flex-shrink:0"></div><span>'+p.first+' '+p.last+'</span></div>';
   }).join('');
   res.style.display='block';
@@ -1042,11 +1053,8 @@ function clearOPSel(){S.opSelId=null;$('op-sel').style.display='none';}
 
 function saveOP() {
   var otherParentId=null;
-
   if(S.opSelId){
-    // Use existing person
     otherParentId=S.opSelId;
-    // Make sure they are at same Y level as anchor
     var existingP=S.ps.find(function(p){return p.id===S.opSelId;});
     var anchorP=S.ps.find(function(p){return p.id===S.opAnchorId;});
     if(existingP&&anchorP){
@@ -1058,31 +1066,23 @@ function saveOP() {
   } else {
     var first=$('op-fn').value.trim(), last=$('op-fl').value.trim();
     if(!first||!last){toast('Escribe nombre y apellido','w');$('op-fn').focus();return;}
-
-    // Calculate position based on actual positions of existing cards
     var parent1=S.ps.find(function(p){return p.id===S.opAnchorId;});
     var child=S.ps.find(function(p){return p.id===S.opChildId;});
     var posX, posY;
     if(parent1){
-      // Place at SAME Y as parent1, to the right
       posY = parent1.y||0;
       posX = (parent1.x||0) + 175;
-      // Make sure child is BELOW both parents
       if(child){
         var expectedChildY2 = posY + GAP_V;
-        // Always move child below parents
         child.y = expectedChildY2;
-        // Center child between both parents
         child.x = ((parent1.x||0) + posX) / 2;
       }
     } else if(child){
-      // Place above child
       posX = (child.x||0);
       posY = (child.y||0) - GAP_V;
     } else {
       posX = 300; posY = 200;
     }
-
     var np={id:'p'+Date.now(),x:posX,y:posY,
       first:first,last:last,
       gender:$('op-gen').value,
@@ -1098,67 +1098,46 @@ function saveOP() {
     S.ps.push(np);
     otherParentId=np.id;
   }
-
-  // Connect all relationships correctly
   var childId, parent1Id;
   if(S.opRelType==='child'){
-    // Added child FROM anchor: anchor=parent1, opChildId=child
     childId = S.opChildId;
     parent1Id = S.opAnchorId;
   } else {
-    // Added parent TO anchor: anchor=child, opChildId=new parent
     childId = S.opAnchorId;
     parent1Id = S.opChildId;
   }
-
-  // Both parents -> child, normalized as parent type
   addRel(parent1Id, childId, 'parent');
   addRel(otherParentId, childId, 'parent');
-
-  // Fix positions: ensure parents are ABOVE child
   var par1obj = S.ps.find(function(p){return p.id===parent1Id;});
   var par2obj = S.ps.find(function(p){return p.id===otherParentId;});
   var childobj = S.ps.find(function(p){return p.id===childId;});
   if(par1obj && par2obj && childobj){
-    // Step 1: Fix parent Y - must be ABOVE child
     var childY = childobj.y||0;
     var parentY = childY - GAP_V;
     if(parentY < 50) parentY = 50;
-
-    // Step 2: Position parents side by side at parentY
     par1obj.y = parentY;
     par2obj.y = parentY;
-
-    // Step 3: Keep par1 position, place par2 to the right
     var p1x = par1obj.x||200;
     par2obj.x = p1x + GAP_H;
     par1obj.x = p1x;
-
-    // Step 4: Find ALL children and center them under both parents
     var allChildren = S.rs.filter(function(r){
       return r.type==='parent'&&(r.f===parent1Id||r.f===otherParentId);
     }).map(function(r){return S.ps.find(function(p){return p.id===r.t;});}).filter(Boolean);
-    // Remove duplicates
     var seen={};
-    allChildren = allChildren.filter(function(ch){
-      if(seen[ch.id])return false; seen[ch.id]=true; return true;
-    });
+    allChildren = allChildren.filter(function(ch){if(seen[ch.id])return false; seen[ch.id]=true; return true;});
     var midX = (pcx(par1obj) + pcx(par2obj)) / 2;
     var totalW = allChildren.length * CW + (allChildren.length-1) * 20;
     var startX = midX - totalW/2;
-    // Sort by birth year
     allChildren.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
     allChildren.forEach(function(ch, i){
       ch.x = startX + i*(CW+20);
       ch.y = parentY + GAP_V;
     });
   }
-
   $('opmo').style.display='none';
   document.body.style.overflow='';
   renderAll();
   autoSave();
-  // Scroll to show the family
   setTimeout(function(){
     var p=S.ps.find(function(x){return x.id===parent1Id;});
     if(p)scrollToId(parent1Id);
@@ -1169,7 +1148,9 @@ function saveOP() {
 function skipOtherParent(){
   var child=S.ps.find(function(p){return p.id===S.opChildId;});
   var nm=child?child.first+' '+child.last:'esta persona';
-  if(confirm('\u00bfSeguro? Si no completas el otro padre/madre, '+nm+' quedar\u00e1 sin ambos padres.\n\nPuedes completarlo despu\u00e9s desde la ficha.')){
+  if(confirm('¿Seguro? Si no completas el otro padre/madre, '+nm+' quedará sin ambos padres.
+
+Puedes completarlo después desde la ficha.')){
     $('opmo').style.display='none'; document.body.style.overflow=''; renderAll();
   }
 }
@@ -1177,7 +1158,7 @@ function skipOtherParent(){
 function deleteChild(){
   var child=S.ps.find(function(p){return p.id===S.opChildId;});
   var nm=child?child.first+' '+child.last:'';
-  if(confirm('\u00bfEliminar a "'+nm+'" del \u00e1rbol? Esta acci\u00f3n no se puede deshacer.')){
+  if(confirm('¿Eliminar a "'+nm+'" del árbol?')){
     S.ps=S.ps.filter(function(p){return p.id!==S.opChildId;});
     S.rs=S.rs.filter(function(r){return r.f!==S.opChildId&&r.t!==S.opChildId;});
     $('opmo').style.display='none'; document.body.style.overflow='';
@@ -1189,7 +1170,7 @@ function deleteChild(){
 function confirmDel(id) {
   var p=S.ps.find(function(x){return x.id===id;}); if(!p)return;
   var rc=S.rs.filter(function(r){return r.f===id||r.t===id;}).length;
-  $('del-txt').textContent='\u00bfEliminar a "'+p.first+' '+p.last+'"? Se eliminar\u00e1n '+rc+' conexiones.';
+  $('del-txt').textContent='¿Eliminar a "'+p.first+' '+p.last+'"? Se eliminarán '+rc+' conexiones.';
   $('del-ok').onclick=function(){
     S.ps=S.ps.filter(function(x){return x.id!==id;});
     S.rs=S.rs.filter(function(r){return r.f!==id&&r.t!==id;});
@@ -1227,17 +1208,17 @@ function mkCard(p) {
   card.style.left=(p.x||0)+'px'; card.style.top=(p.y||0)+'px';
   var by=p.bdate?(p.bdate.indexOf('/')>=0?p.bdate.split('/')[2]:p.bdate.split('-')[0]):'';
   var dy=p.ddate?(p.ddate.indexOf('/')>=0?p.ddate.split('/')[2]:p.ddate.split('-')[0]):'';
-  var dates=by?(dy?by+' \u2013 '+dy:'n. '+by):'';
+  var dates=by?(dy?by+' – '+dy:'n. '+by):'';
   var sc=p.deceased?'#aaa':(p.gender==='F'?'#e890a8':'#5a7a5a');
   var ic='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
   var ph=p.photo?'<img src="'+p.photo+'" alt="">':'<div style="display:flex;align-items:center;justify-content:center">'+ic+'</div>';
   var badge=p.deceased?'<div class="ribbon"></div>':'<div class="alive"></div>';
   var nm=p.nick?p.first+' ('+p.nick+') '+p.last:p.first+' '+p.last;
   var acts=!S.ro?'<div class="card-actions">'+
-    '<button class="ca" onclick="event.stopPropagation();showDet(\''+p.id+'\')">&#128065;</button>'+
-    '<button class="ca" onclick="event.stopPropagation();openAddMenu(\''+p.id+'\')">&#65291;</button>'+
-    '<button class="ca" onclick="event.stopPropagation();openEdit(\''+p.id+'\')">&#9999;</button>'+
-    '<button class="ca" onclick="event.stopPropagation();confirmDel(\''+p.id+'\')">&#128465;</button>'+
+    '<button class="ca" onclick="event.stopPropagation();showDet(''+p.id+'')">&#128065;</button>'+
+    '<button class="ca" onclick="event.stopPropagation();openAddMenu(''+p.id+'')">&#65291;</button>'+
+    '<button class="ca" onclick="event.stopPropagation();openEdit(''+p.id+'')">&#9999;</button>'+
+    '<button class="ca" onclick="event.stopPropagation();confirmDel(''+p.id+'')">&#128465;</button>'+
     '</div>':'';
   card.innerHTML='<div class="card-photo">'+ph+badge+'</div>'+
     '<div class="card-body"><div class="card-name">'+nm+'</div>'+(dates?'<div class="card-date">'+dates+'</div>':'')+'</div>'+acts;
@@ -1247,31 +1228,21 @@ function mkCard(p) {
 
 // ─── DRAW LINES ──────────────────────────────────────────
 function normalizeRels(){
-  // Convert all child/parent relations to consistent parent->child format
   S.rs = S.rs.map(function(r){
-    if(r.type==='child'){
-      // flip: f was parent, t was child - make it parent->child
-      return {f:r.f, t:r.t, type:'parent'};
-    }
+    if(r.type==='child'){ return {f:r.f, t:r.t, type:'parent'}; }
     return r;
   });
-  // Remove duplicates
   var seen={};
   S.rs = S.rs.filter(function(r){
     var k=[r.f,r.t].sort().join('|')+r.type;
-    if(seen[k])return false;
-    seen[k]=true;
-    return true;
+    if(seen[k])return false; seen[k]=true; return true;
   });
 }
 
 function drawLines(svg) {
-  var lines = [], seenSib = {}, seenO = {};
-
-  // Step 1: Build children->parents map
-  var childParents = {}; // childId -> [parentId1, parentId2...]
-  var parentChildren = {}; // parentId -> [childId1, childId2...]
-
+  var lines = [], seenO = {};
+  var childParents = {};
+  var parentChildren = {};
   S.rs.forEach(function(r) {
     var pid, cid;
     if(r.type==='parent'){pid=r.f; cid=r.t;}
@@ -1282,72 +1253,37 @@ function drawLines(svg) {
     if(!parentChildren[pid]) parentChildren[pid]=[];
     if(parentChildren[pid].indexOf(cid)<0) parentChildren[pid].push(cid);
   });
-
-  // Step 2: Find unique parent groups (pairs or singles)
-  // A parent group = set of parents who share at least one child
   var drawnGroups = {};
   var drawnChildren = {};
-
-  // Process children with 2 parents first
   Object.keys(childParents).forEach(function(cid) {
     var parents = childParents[cid];
     if(parents.length < 2) return;
-
-    // Sort parents by X position
     var parObjs = parents.map(function(pid){
       return S.ps.find(function(p){return p.id===pid;});
     }).filter(Boolean).sort(function(a,b){return (a.x||0)-(b.x||0);});
-
     if(parObjs.length < 2) return;
-
     var groupKey = parents.slice().sort().join('|');
     if(drawnGroups[groupKey]) return;
     drawnGroups[groupKey] = 1;
-
-    // Find ALL children shared by these parents
     var sharedChildren = Object.keys(childParents).filter(function(kid) {
-      return parents.every(function(pid){
-        return childParents[kid] && childParents[kid].indexOf(pid) >= 0;
-      });
-    }).map(function(kid){
-      return S.ps.find(function(p){return p.id===kid;});
-    }).filter(Boolean);
-
+      return parents.every(function(pid){return childParents[kid] && childParents[kid].indexOf(pid) >= 0;});
+    }).map(function(kid){return S.ps.find(function(p){return p.id===kid;});}).filter(Boolean);
     sharedChildren.forEach(function(ch){drawnChildren[ch.id]=true;});
-
-    var p1 = parObjs[0]; // left parent
-    var p2 = parObjs[parObjs.length-1]; // right parent
-
-    // Horizontal line between parents at their bottom center
+    var p1 = parObjs[0];
+    var p2 = parObjs[parObjs.length-1];
     var lineY = Math.max(pbot(p1), pbot(p2));
     var x1 = pcx(p1);
     var x2 = pcx(p2);
     var midX = (x1 + x2) / 2;
-
-    // Draw horizontal line connecting both parents
     lines.push('<line x1="'+x1+'" y1="'+lineY+'" x2="'+x2+'" y2="'+lineY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
-
-    // Draw T-bar from midpoint down to children
     tBar(lines, midX, lineY, sharedChildren, LC);
   });
-
-  // Step 3: Single parents (children with only one parent)
   Object.keys(parentChildren).forEach(function(pid) {
     var par = S.ps.find(function(p){return p.id===pid;}); if(!par) return;
-    var soloKids = parentChildren[pid].filter(function(cid){
-      return !drawnChildren[cid];
-    }).map(function(cid){
-      return S.ps.find(function(p){return p.id===cid;});
-    }).filter(Boolean);
-
-    if(soloKids.length > 0) {
-      tBar(lines, pcx(par), pbot(par), soloKids, LC);
-    }
+    var soloKids = parentChildren[pid].filter(function(cid){return !drawnChildren[cid];})
+      .map(function(cid){return S.ps.find(function(p){return p.id===cid;});}).filter(Boolean);
+    if(soloKids.length > 0) { tBar(lines, pcx(par), pbot(par), soloKids, LC); }
   });
-
-  // Sibling lines removed - connection shown through parent T-bar
-
-  // Step 5: Other relations
   var oc={grandparent:'#8a9e6a',grandchild:'#8a9e6a',uncle:'#9aae9a',cousin:'#b8a898'};
   S.rs.filter(function(r){return oc[r.type];}).forEach(function(r){
     var k=[r.f,r.t].sort().join('|')+r.type; if(seenO[k])return; seenO[k]=1;
@@ -1356,10 +1292,8 @@ function drawLines(svg) {
     var cx1=pcx(a),cy1=pmid(a),cx2=pcx(b),cy2=pmid(b),cpx=(cx1+cx2)/2;
     lines.push('<path d="M'+cx1+','+cy1+' C'+cpx+','+cy1+' '+cpx+','+cy2+' '+cx2+','+cy2+'" stroke="'+oc[r.type]+'" stroke-width="1.5" fill="none" stroke-dasharray="4,3" opacity=".7"/>');
   });
-
   svg.innerHTML = lines.join('');
 }
-
 
 function tBar(lines,dx,dy,kids,col){
   if(!kids.length)return;
@@ -1412,25 +1346,25 @@ function showDet(id){
   var gc=p.deceased?'d':(p.gender==='F'?'f':'');
   var ag=calcAge(p.bdate,p.ddate,p.deceased);
   var rels=S.rs.filter(function(r){return r.f===id||r.t===id;});
-  var pills=rels.map(function(r){var oid=r.f===id?r.t:r.f;var o=S.ps.find(function(p){return p.id===oid;});if(!o)return'';return'<span class="rel-pill" onclick="showDet(\''+oid+'\')">'+o.first+' '+o.last+' \u00b7 '+(RL[r.type]||r.type)+'</span>';}).join('');
+  var pills=rels.map(function(r){var oid=r.f===id?r.t:r.f;var o=S.ps.find(function(p){return p.id===oid;});if(!o)return'';return'<span class="rel-pill" onclick="showDet(''+oid+'')">'+o.first+' '+o.last+' · '+(RL[r.type]||r.type)+'</span>';}).join('');
   var ph=p.photo?'<img src="'+p.photo+'" alt="">':(p.gender==='F'?'&#128105;':(p.deceased?'&#128116;':'&#128104;'));
   dp.innerHTML=
     '<div class="dp-head"><div class="dp-thumb '+gc+'">'+ph+'</div><div>'+
     '<div class="dp-name">'+p.first+' '+p.last+(p.nick?' ('+p.nick+')':'')+'</div>'+
     (p.heb?'<div style="font-size:12px;color:#7a7268">'+p.heb+'</div>':'')+
-    '<div class="dp-status">'+(p.deceased?'Fallecido/a':'Con vida')+(ag?' \u00b7 '+ag:'')+'</div></div></div>'+
+    '<div class="dp-status">'+(p.deceased?'Fallecido/a':'Con vida')+(ag?' · '+ag:'')+'</div></div></div>'+
     '<div class="dp-sec"><h4>Datos</h4>'+
     (p.bdate?'<div class="dp-row"><span>Nacimiento</span><span>'+fmt(p.bdate)+'</span></div>':'')+
     (p.bplace?'<div class="dp-row"><span>Lugar</span><span>'+p.bplace+'</span></div>':'')+
     (ag?'<div class="dp-row"><span>Edad</span><span>'+ag+'</span></div>':'')+
-    (p.deceased&&p.ddate?'<div class="dp-row"><span>Defunci\u00f3n</span><span>'+fmt(p.ddate)+'</span></div>':'')+
+    (p.deceased&&p.ddate?'<div class="dp-row"><span>Defunción</span><span>'+fmt(p.ddate)+'</span></div>':'')+
     '</div>'+
     (rels.length?'<div class="dp-sec"><h4>Familiares ('+rels.length+')</h4><div>'+pills+'</div></div>':'')+
     (p.notes?'<div class="dp-sec"><h4>Notas</h4><p style="font-size:12px;color:#7a7268;line-height:1.5">'+p.notes+'</p></div>':'')+
     '<div class="dp-actions">'+
-    (!S.ro?'<button class="btn btn-o" style="font-size:11px;padding:5px 10px" onclick="openEdit(\''+id+'\')">&#9999; Editar</button>':'')+
-    (!S.ro?'<button class="btn btn-k" style="font-size:11px;padding:5px 10px" onclick="openAddMenu(\''+id+'\')">&#65291; Familiar</button>':'')+
-    (!S.ro?'<button class="btn" style="font-size:11px;padding:5px 10px;background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" onclick="confirmDel(\''+id+'\')">&#128465;</button>':'')+
+    (!S.ro?'<button class="btn btn-o" style="font-size:11px;padding:5px 10px" onclick="openEdit(''+id+'')">&#9999; Editar</button>':'')+
+    (!S.ro?'<button class="btn btn-k" style="font-size:11px;padding:5px 10px" onclick="openAddMenu(''+id+'')">&#65291; Familiar</button>':'')+
+    (!S.ro?'<button class="btn" style="font-size:11px;padding:5px 10px;background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" onclick="confirmDel(''+id+'')">&#128465;</button>':'')+
     '<button class="btn btn-k" style="font-size:11px;padding:5px 10px;margin-left:auto" onclick="closeDet()">&#x2715;</button></div>';
   dp.classList.add('open');
 }
@@ -1450,7 +1384,6 @@ function scrollToId(id){
   var cy=(p.y||0)*S.zoom - tw.clientHeight/2 + CBH/2;
   tw.scrollLeft=Math.max(0,cx);
   tw.scrollTop=Math.max(0,cy);
-  // Highlight card briefly
   var card=$('c_'+id);
   if(card){
     card.style.boxShadow='0 0 0 4px rgba(90,122,90,.6)';
@@ -1473,7 +1406,6 @@ function centerView(){
 }
 
 function reorderAll(){
-  // Find all parent groups and reorder their children by birth year
   var parentIds = {};
   S.rs.forEach(function(r){
     if(r.type==='parent'){
@@ -1481,11 +1413,8 @@ function reorderAll(){
       if(parentIds[r.f].indexOf(r.t)<0) parentIds[r.f].push(r.t);
     }
   });
-
-  // Find unique parent pairs with shared children
   var done={};
   Object.keys(parentIds).forEach(function(pid){
-    // Find co-parents
     var children = parentIds[pid];
     var coParents = [pid];
     children.forEach(function(cid){
@@ -1495,12 +1424,9 @@ function reorderAll(){
         }
       });
     });
-
     var groupKey = coParents.slice().sort().join('|');
     if(done[groupKey]) return;
     done[groupKey]=1;
-
-    // Get all shared children
     var allChildren = [];
     S.rs.forEach(function(r){
       if(r.type==='parent' && coParents.indexOf(r.f)>=0){
@@ -1509,26 +1435,15 @@ function reorderAll(){
       }
     });
     if(allChildren.length<2) return;
-
-    // Sort by birth year
     allChildren.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-
-    // Get parent center
     var parObjs = coParents.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
     var parCenterX = parObjs.reduce(function(sum,p){return sum+pcx(p);},0)/parObjs.length;
     var childY = allChildren[0].y||0;
     var totalW = allChildren.length*CW + (allChildren.length-1)*20;
     var startX = parCenterX - totalW/2;
-
-    allChildren.forEach(function(ch,i){
-      ch.x = startX + i*(CW+20);
-      ch.y = childY;
-    });
+    allChildren.forEach(function(ch,i){ ch.x = startX + i*(CW+20); ch.y = childY; });
   });
-
-  renderAll();
-  autoSave();
-  toast('Orden por nacimiento aplicado ✓','ok');
+  renderAll(); autoSave(); toast('Orden por nacimiento ✓','ok');
 }
 
 function fitView(){
@@ -1549,22 +1464,21 @@ function openShare(){
 }
 function copyLink(){
   var txt=$('share-url').textContent;
-  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast('Copiado \u2713','ok');});}
-  else{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copiado \u2713','ok');}
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast('Copiado ✓','ok');});}
+  else{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copiado ✓','ok');}
 }
 
 // ─── STATS ───────────────────────────────────────────────
 function openStats(){
   openModal('statsmo');
   var t=S.ps.length,v=S.ps.filter(function(p){return !p.deceased;}).length;
-  var ages=S.ps.filter(function(p){return p.bdate;}).map(function(p){var e=p.deceased&&p.ddate?new Date(p.ddate):new Date();return Math.floor((e-new Date(p.bdate))/31557600000);}).filter(function(a){return a>0;});
+  var ages=S.ps.filter(function(p){return p.bdate;}).map(function(p){var e=p.deceased&&p.ddate?new Date(toISO(p.ddate)):new Date();return Math.floor((e-new Date(toISO(p.bdate)))/31557600000);}).filter(function(a){return a>0;});
   var max=ages.length?Math.max.apply(null,ages):0;
-  var avg=ages.length?Math.round(ages.reduce(function(a,b){return a+b;},0)/ages.length):0;
   $('stats-ct').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
     '<div style="background:#f7f3ee;border:1px solid #d4cfc8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:600;color:#5a7a5a">'+t+'</div><div style="font-size:11px;color:#7a7268">Personas</div></div>'+
     '<div style="background:#f7f3ee;border:1px solid #d4cfc8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:600;color:#4caf50">'+v+'</div><div style="font-size:11px;color:#7a7268">Con vida</div></div>'+
     '<div style="background:#f7f3ee;border:1px solid #d4cfc8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:600;color:#b0b0b0">'+(t-v)+'</div><div style="font-size:11px;color:#7a7268">Fallecidos</div></div>'+
-    '<div style="background:#f7f3ee;border:1px solid #d4cfc8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:600;color:#c4a35a">'+max+'</div><div style="font-size:11px;color:#7a7268">A\u00f1os m\u00e1x.</div></div>'+
+    '<div style="background:#f7f3ee;border:1px solid #d4cfc8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:600;color:#c4a35a">'+max+'</div><div style="font-size:11px;color:#7a7268">Años máx.</div></div>'+
     '</div>';
 }
 
@@ -1572,7 +1486,6 @@ function openStats(){
 var searchOpen=false;
 function toggleSearch(){
   searchOpen=!searchOpen;
-  // Simple search via prompt on mobile
   if(searchOpen){
     var q=prompt('Buscar persona por nombre:');
     if(q){
@@ -1591,8 +1504,8 @@ function expPDF(){
   setTimeout(function(){
     var win=window.open('','_blank');
     var cards=S.ps.map(function(p){
-      var by=p.bdate?new Date(p.bdate).getFullYear():'';
-      var dy=p.ddate?new Date(p.ddate).getFullYear():'';
+      var by=p.bdate?(p.bdate.indexOf('/')>=0?p.bdate.split('/')[2]:p.bdate.split('-')[0]):'';
+      var dy=p.ddate?(p.ddate.indexOf('/')>=0?p.ddate.split('/')[2]:p.ddate.split('-')[0]):'';
       var dates=by?(dy?by+'-'+dy:'n.'+by):'';
       var bc=p.deceased?'#b0b0b0':(p.gender==='F'?'#e890a8':'#5a7a5a');
       var bg=p.deceased?'#f0f0f0':(p.gender==='F'?'#fbeef4':'#eef5ee');
@@ -1601,10 +1514,10 @@ function expPDF(){
         (p.photo?'<img src="'+p.photo+'" style="width:100%;height:100%;object-fit:cover">':'<span style="opacity:.4;font-size:20px">'+(p.gender==='F'?'F':'M')+'</span>')+
         '</div><div style="padding:4px 5px;border-top:1px solid #eee"><div style="font-size:10px;font-weight:600;text-align:center">'+p.first+' '+p.last+'</div>'+(dates?'<div style="font-size:9px;color:#888;text-align:center">'+dates+'</div>':'')+'</div></div>';
     }).join('');
-    win.document.write('<!DOCTYPE html><html><head><title>E-TREE</title><style>body{font-family:Georgia,serif;margin:0;padding:24px}h1{text-align:center;font-size:26px;margin-bottom:4px}.s{text-align:center;color:#888;font-size:11px;margin-bottom:20px}@media print{.np{display:none!important}}</style></head><body>'+
-      '<h1>E-TREE</h1><p class="s">'+S.ps.length+' personas &bull; Creado por Ilan Bar Lev</p>'+
+    win.document.write('<!DOCTYPE html><html><head><title>E-TREE</title></head><body>'+
+      '<h1 style="text-align:center">E-TREE</h1>'+
       '<div style="text-align:center">'+cards+'</div>'+
-      '<div class="np" style="text-align:center;margin-top:24px"><button onclick="window.print()" style="padding:10px 24px;background:#5a7a5a;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Imprimir</button></div></body></html>');
+      '<div style="text-align:center;margin-top:24px"><button onclick="window.print()">Imprimir</button></div></body></html>');
     win.document.close();
   },300);
 }
@@ -1622,70 +1535,42 @@ function toast(msg,type){
   setTimeout(function(){t.style.cssText+='opacity:0;transform:translateX(110%);transition:all .3s;';setTimeout(function(){t.remove();},300);},3000);
 }
 
-// ─── INIT ────────────────────────────────────────────────
 // ─── SIBLING PARENTS ─────────────────────────────────────
 var SIB = {sibId:null, refId:null, option:null};
 
 function showSibParents(sibId, refId){
-  SIB.sibId = sibId;
-  SIB.refId = refId;
-  SIB.option = null;
-
+  SIB.sibId = sibId; SIB.refId = refId; SIB.option = null;
   var sib = S.ps.find(function(p){return p.id===sibId;});
   var ref = S.ps.find(function(p){return p.id===refId;});
   if(!sib||!ref) return;
-
-  var sibName = sib.first+' '+sib.last;
-  var refName = ref.first+' '+ref.last;
-
-  $('sib-name').textContent = sibName;
-  $('sib-name2').textContent = sibName;
-  $('sib-ref-name').textContent = refName;
-
-  // Reset selection
+  $('sib-name').textContent = sib.first+' '+sib.last;
+  $('sib-name2').textContent = sib.first+' '+sib.last;
+  $('sib-ref-name').textContent = ref.first+' '+ref.last;
   ['sib-opt-same','sib-opt-father','sib-opt-mother','sib-opt-none'].forEach(function(id){
-    var el = $(id);
-    if(el) el.style.borderColor = '#d4cfc8';
+    var el=$(id); if(el){el.style.borderColor='#d4cfc8';el.style.background='white';}
   });
-
-  var mo = $('sibmo');
-  mo.style.display = 'flex';
-  mo.style.alignItems = 'center';
-  mo.style.justifyContent = 'center';
-  document.body.style.overflow = 'hidden';
+  var mo=$('sibmo'); mo.style.display='flex'; mo.style.alignItems='center'; mo.style.justifyContent='center';
+  document.body.style.overflow='hidden';
 }
 
 function setSibOption(opt){
   SIB.option = opt;
   ['same','father','mother','none'].forEach(function(o){
-    var el = $('sib-opt-'+o);
-    if(el) el.style.borderColor = o===opt ? '#5a7a5a' : '#d4cfc8';
-    if(el) el.style.background = o===opt ? 'rgba(90,122,90,.08)' : 'white';
+    var el=$('sib-opt-'+o);
+    if(el){el.style.borderColor=o===opt?'#5a7a5a':'#d4cfc8'; el.style.background=o===opt?'rgba(90,122,90,.08)':'white';}
   });
 }
 
 function saveSibParents(){
   if(!SIB.option){ toast('Selecciona una opción','w'); return; }
-
   var ref = S.ps.find(function(p){return p.id===SIB.refId;});
   if(!ref){ closeSibModal(); return; }
-
-  // Get parents of the reference person
-  var refParents = S.rs
-    .filter(function(r){return r.type==='parent'&&r.t===SIB.refId;})
-    .map(function(r){return S.ps.find(function(p){return p.id===r.f;});})
-    .filter(Boolean);
-
-  // Sort by gender to identify father/mother
+  var refParents = S.rs.filter(function(r){return r.type==='parent'&&r.t===SIB.refId;})
+    .map(function(r){return S.ps.find(function(p){return p.id===r.f;});}).filter(Boolean);
   var father = refParents.find(function(p){return p.gender==='M';}) || refParents[0];
   var mother = refParents.find(function(p){return p.gender==='F';}) || refParents[1];
-
   if(SIB.option==='same'){
-    // Connect sibling to both parents
-    refParents.forEach(function(par){
-      addRel(par.id, SIB.sibId, 'parent');
-    });
-    // Position sibling next to reference person
+    refParents.forEach(function(par){ addRel(par.id, SIB.sibId, 'parent'); });
     positionSibling(SIB.sibId, SIB.refId, refParents);
   } else if(SIB.option==='father' && father){
     addRel(father.id, SIB.sibId, 'parent');
@@ -1694,31 +1579,18 @@ function saveSibParents(){
     addRel(mother.id, SIB.sibId, 'parent');
     positionSibling(SIB.sibId, SIB.refId, [mother]);
   }
-  // 'none' = no parent connection, sibling stays where placed
-
-  closeSibModal();
-  renderAll();
-  autoSave();
-  toast('Hermano/a conectado ✓','ok');
+  closeSibModal(); renderAll(); autoSave(); toast('Hermano/a conectado ✓','ok');
 }
 
 function positionSibling(sibId, refId, parents){
   var sib = S.ps.find(function(p){return p.id===sibId;});
   var ref = S.ps.find(function(p){return p.id===refId;});
   if(!sib||!ref) return;
-
-  // Place at same Y as reference, to the right
   sib.y = ref.y||0;
-  var siblingsAtY = S.ps.filter(function(p){
-    return p.id!==sibId && Math.abs((p.y||0)-(ref.y||0))<80;
-  });
+  var siblingsAtY = S.ps.filter(function(p){return p.id!==sibId && Math.abs((p.y||0)-(ref.y||0))<80;});
   var maxX = Math.max.apply(null, siblingsAtY.map(function(p){return(p.x||0)+CW;}));
   sib.x = maxX + 20;
-
-  // Recenter all children under their parents
-  if(parents.length > 0){
-    recenterChildren(parents.map(function(p){return p.id;}));
-  }
+  if(parents.length > 0){ recenterChildren(parents.map(function(p){return p.id;})); }
 }
 
 function getBirthYear(p){
@@ -1736,37 +1608,35 @@ function recenterChildren(parentIds){
     }
   });
   if(allChildren.length===0) return;
-
-  // Sort by birth year (oldest to youngest, left to right)
   allChildren.sort(function(a,b){ return getBirthYear(a)-getBirthYear(b); });
-
   var parObjs = parentIds.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
   if(parObjs.length===0) return;
-
   var parCenterX = parObjs.reduce(function(sum,p){return sum+pcx(p);},0)/parObjs.length;
   var childY = allChildren[0].y||0;
   var totalW = allChildren.length*CW + (allChildren.length-1)*20;
   var startX = parCenterX - totalW/2;
-
-  allChildren.forEach(function(ch,i){
-    ch.x = startX + i*(CW+20);
-    ch.y = childY;
-  });
+  allChildren.forEach(function(ch,i){ ch.x = startX + i*(CW+20); ch.y = childY; });
 }
 
-function skipSibParents(){
-  closeSibModal();
-  renderAll();
-}
-
+function skipSibParents(){ closeSibModal(); renderAll(); }
 function closeSibModal(){
-  var mo = $('sibmo');
-  if(mo) mo.style.display = 'none';
-  document.body.style.overflow = '';
+  var mo=$('sibmo'); if(mo) mo.style.display='none';
+  document.body.style.overflow='';
 }
 
+function askSpouseChildren(spouseId, anchorId){
+  var anchor = S.ps.find(function(p){return p.id===anchorId;});
+  var spouse = S.ps.find(function(p){return p.id===spouseId;});
+  if(!anchor||!spouse) return;
+  if(confirm('¿Tienen hijos '+anchor.first+' '+anchor.last+' y '+spouse.first+' '+spouse.last+'?
+
+Toca OK para agregar hijos ahora.')){
+    openAddMenu(anchorId);
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────
 window.addEventListener('load',function(){
-  // Check share mode
   var params=new URLSearchParams(window.location.search);
   if(params.get('share')){
     S.ro=true;
@@ -1780,23 +1650,17 @@ window.addEventListener('load',function(){
     } else { showApp(); }
     return;
   }
-  // Restore session
   try{
     var sv=localStorage.getItem('etree_u');
     if(sv){
       S.user=JSON.parse(sv);
       $('login').style.display='none';
-      loadData();
+      if(fbDb){loadData();}else{loadLocal();}
       showApp();
       return;
     }
   }catch(x){}
-  // Show login - already visible by default
-  // Add enter key support
-  $('einp').addEventListener('keydown',function(e){
-    if(e.key==='Enter')doLogin();
-  });
-  // Pinch zoom
+  $('einp').addEventListener('keydown',function(e){ if(e.key==='Enter')doLogin(); });
   var tw=$('tree-wrap'),lastD=0;
   if(tw){
     tw.addEventListener('touchstart',function(e){if(e.touches.length===2)lastD=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});
