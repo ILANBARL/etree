@@ -1142,97 +1142,98 @@ function mkCard(p) {
 
 // ─── DRAW LINES ──────────────────────────────────────────
 function drawLines(svg) {
-  var lines = [], seenO = {}, seenSib = {};
+  var lines = [], seenSib = {}, seenO = {};
 
-  // Build parent->children map
-  var pm = {};
+  // Step 1: Build children->parents map
+  var childParents = {}; // childId -> [parentId1, parentId2...]
+  var parentChildren = {}; // parentId -> [childId1, childId2...]
+
   S.rs.forEach(function(r) {
     var pid, cid;
     if(r.type==='parent'){pid=r.f; cid=r.t;}
     else if(r.type==='child'){pid=r.t; cid=r.f;}
     else return;
-    if(!pm[pid]) pm[pid] = [];
-    if(pm[pid].indexOf(cid) < 0) pm[pid].push(cid);
+    if(!childParents[cid]) childParents[cid]=[];
+    if(childParents[cid].indexOf(pid)<0) childParents[cid].push(pid);
+    if(!parentChildren[pid]) parentChildren[pid]=[];
+    if(parentChildren[pid].indexOf(cid)<0) parentChildren[pid].push(cid);
   });
 
-  var drawnPairs = {};
+  // Step 2: Find unique parent groups (pairs or singles)
+  // A parent group = set of parents who share at least one child
+  var drawnGroups = {};
   var drawnChildren = {};
 
-  Object.keys(pm).forEach(function(pid) {
+  // Process children with 2 parents first
+  Object.keys(childParents).forEach(function(cid) {
+    var parents = childParents[cid];
+    if(parents.length < 2) return;
+
+    // Sort parents by X position
+    var parObjs = parents.map(function(pid){
+      return S.ps.find(function(p){return p.id===pid;});
+    }).filter(Boolean).sort(function(a,b){return (a.x||0)-(b.x||0);});
+
+    if(parObjs.length < 2) return;
+
+    var groupKey = parents.slice().sort().join('|');
+    if(drawnGroups[groupKey]) return;
+    drawnGroups[groupKey] = 1;
+
+    // Find ALL children shared by these parents
+    var sharedChildren = Object.keys(childParents).filter(function(kid) {
+      return parents.every(function(pid){
+        return childParents[kid] && childParents[kid].indexOf(pid) >= 0;
+      });
+    }).map(function(kid){
+      return S.ps.find(function(p){return p.id===kid;});
+    }).filter(Boolean);
+
+    sharedChildren.forEach(function(ch){drawnChildren[ch.id]=true;});
+
+    var p1 = parObjs[0]; // left parent
+    var p2 = parObjs[parObjs.length-1]; // right parent
+
+    // Horizontal line between parents at their bottom center
+    var lineY = Math.max(pbot(p1), pbot(p2));
+    var x1 = pcx(p1);
+    var x2 = pcx(p2);
+    var midX = (x1 + x2) / 2;
+
+    // Draw horizontal line connecting both parents
+    lines.push('<line x1="'+x1+'" y1="'+lineY+'" x2="'+x2+'" y2="'+lineY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
+
+    // Draw T-bar from midpoint down to children
+    tBar(lines, midX, lineY, sharedChildren, LC);
+  });
+
+  // Step 3: Single parents (children with only one parent)
+  Object.keys(parentChildren).forEach(function(pid) {
     var par = S.ps.find(function(p){return p.id===pid;}); if(!par) return;
+    var soloKids = parentChildren[pid].filter(function(cid){
+      return !drawnChildren[cid];
+    }).map(function(cid){
+      return S.ps.find(function(p){return p.id===cid;});
+    }).filter(Boolean);
 
-    // Find co-parents via shared children
-    var coParents = [];
-    pm[pid].forEach(function(cid) {
-      Object.keys(pm).forEach(function(otherId) {
-        if(otherId !== pid && pm[otherId] && pm[otherId].indexOf(cid) >= 0) {
-          if(coParents.indexOf(otherId) < 0) coParents.push(otherId);
-        }
-      });
-    });
-
-    if(coParents.length > 0) {
-      coParents.forEach(function(coId) {
-        var pairKey = [pid, coId].sort().join('|');
-        if(drawnPairs[pairKey]) return;
-        drawnPairs[pairKey] = 1;
-
-        var copar = S.ps.find(function(p){return p.id===coId;}); if(!copar) return;
-
-        // Shared children
-        var shared = pm[pid].filter(function(cid){
-          return pm[coId] && pm[coId].indexOf(cid) >= 0;
-        }).map(function(cid){
-          return S.ps.find(function(p){return p.id===cid;});
-        }).filter(Boolean);
-
-        shared.forEach(function(ch){drawnChildren[ch.id]=true;});
-
-        // MyHeritage style:
-        // 1. Horizontal line between the two parents at their mid-height
-        // 2. Vertical line down from center to children
-        var left = pcx(par) < pcx(copar) ? par : copar;
-        var right = pcx(par) < pcx(copar) ? copar : par;
-
-        // Mid Y between both parents
-        var midY = (pbot(left) + pbot(right)) / 2;
-        var centerX = (pcx(left) + pcx(right)) / 2;
-
-        // Horizontal connector between parents at midY
-        lines.push('<line x1="'+prgt(left)+'" y1="'+midY+'" x2="'+plft(right)+'" y2="'+midY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
-
-        // Vertical line from center down to children
-        var childTopY = Math.min.apply(null, shared.map(function(ch){return ptop(ch);}));
-        var dropY = midY + (childTopY - midY) / 2;
-
-        lines.push('<line x1="'+centerX+'" y1="'+midY+'" x2="'+centerX+'" y2="'+dropY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
-
-        // T-bar to children
-        tBar(lines, centerX, dropY, shared, LC);
-      });
-    }
-
-    // Solo children (no co-parent)
-    var soloKids = pm[pid].filter(function(cid){return !drawnChildren[cid];})
-      .map(function(cid){return S.ps.find(function(p){return p.id===cid;});}).filter(Boolean);
     if(soloKids.length > 0) {
       tBar(lines, pcx(par), pbot(par), soloKids, LC);
     }
   });
 
-  // Sibling lines
+  // Step 4: Sibling lines
   S.rs.filter(function(r){return r.type==='sibling';}).forEach(function(r){
     var k=[r.f,r.t].sort().join('|'); if(seenSib[k])return; seenSib[k]=1;
-    var a=S.ps.find(function(p){return p.id===r.f;}), b=S.ps.find(function(p){return p.id===r.t;});
+    var a=S.ps.find(function(p){return p.id===r.f;}),b=S.ps.find(function(p){return p.id===r.t;});
     if(!a||!b)return;
-    lines.push('<line x1="'+pcx(a)+'" y1="'+pmid(a)+'" x2="'+pcx(b)+'" y2="'+pmid(b)+'" stroke="'+LC+'" stroke-width="1.5" stroke-dasharray="5,4" opacity=".7"/>');
+    lines.push('<line x1="'+pcx(a)+'" y1="'+pmid(a)+'" x2="'+pcx(b)+'" y2="'+pmid(b)+'" stroke="'+LC+'" stroke-width="1.5" stroke-dasharray="5,4" opacity=".6"/>');
   });
 
-  // Other relations curved
+  // Step 5: Other relations
   var oc={grandparent:'#8a9e6a',grandchild:'#8a9e6a',uncle:'#9aae9a',cousin:'#b8a898'};
   S.rs.filter(function(r){return oc[r.type];}).forEach(function(r){
     var k=[r.f,r.t].sort().join('|')+r.type; if(seenO[k])return; seenO[k]=1;
-    var a=S.ps.find(function(p){return p.id===r.f;}), b=S.ps.find(function(p){return p.id===r.t;});
+    var a=S.ps.find(function(p){return p.id===r.f;}),b=S.ps.find(function(p){return p.id===r.t;});
     if(!a||!b)return;
     var cx1=pcx(a),cy1=pmid(a),cx2=pcx(b),cy2=pmid(b),cpx=(cx1+cx2)/2;
     lines.push('<path d="M'+cx1+','+cy1+' C'+cpx+','+cy1+' '+cpx+','+cy2+' '+cx2+','+cy2+'" stroke="'+oc[r.type]+'" stroke-width="1.5" fill="none" stroke-dasharray="4,3" opacity=".7"/>');
