@@ -644,8 +644,9 @@ function loadData() {
       S.rs = d.rs || [];
       if (d.plan && S.user) S.user.plan = d.plan;
     }
+    normalizeRels();
     renderAll();
-  }).catch(function() { loadLocal(); renderAll(); });
+  }).catch(function() { loadLocal(); normalizeRels(); renderAll(); });
 }
 
 function saveData() {
@@ -864,7 +865,16 @@ function savePer() {
     var np = Object.assign({id:'p'+Date.now(), x:pos.x, y:pos.y}, data);
     S.ps.push(np);
     if (S.aid && S.selRel) {
-      addRel(S.aid, np.id, S.selRel);
+      // Normalize: always store as parent->child
+      if(S.selRel==='parent'){
+        // np is PARENT of S.aid
+        addRel(np.id, S.aid, 'parent');
+      } else if(S.selRel==='child'){
+        // np is CHILD of S.aid  
+        addRel(S.aid, np.id, 'parent');
+      } else {
+        addRel(S.aid, np.id, S.selRel);
+      }
       closeModal('pmo'); closeDet(); renderAll(); autoSave();
       if (S.selRel==='child'||S.selRel==='parent') {
         // Check if other parent already exists
@@ -1022,7 +1032,7 @@ function saveOP() {
     parent1Id = S.opChildId;
   }
 
-  // Only parent-child relations needed - no spouse relation
+  // Both parents -> child, normalized as parent type
   addRel(parent1Id, childId, 'parent');
   addRel(otherParentId, childId, 'parent');
 
@@ -1141,6 +1151,25 @@ function mkCard(p) {
 }
 
 // ─── DRAW LINES ──────────────────────────────────────────
+function normalizeRels(){
+  // Convert all child/parent relations to consistent parent->child format
+  S.rs = S.rs.map(function(r){
+    if(r.type==='child'){
+      // flip: f was parent, t was child - make it parent->child
+      return {f:r.f, t:r.t, type:'parent'};
+    }
+    return r;
+  });
+  // Remove duplicates
+  var seen={};
+  S.rs = S.rs.filter(function(r){
+    var k=[r.f,r.t].sort().join('|')+r.type;
+    if(seen[k])return false;
+    seen[k]=true;
+    return true;
+  });
+}
+
 function drawLines(svg) {
   var lines = [], seenSib = {}, seenO = {};
 
