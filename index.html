@@ -1145,6 +1145,8 @@ function saveOP() {
     var midX = (pcx(par1obj) + pcx(par2obj)) / 2;
     var totalW = allChildren.length * CW + (allChildren.length-1) * 20;
     var startX = midX - totalW/2;
+    // Sort by birth year
+    allChildren.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
     allChildren.forEach(function(ch, i){
       ch.x = startX + i*(CW+20);
       ch.y = parentY + GAP_V;
@@ -1342,13 +1344,7 @@ function drawLines(svg) {
     }
   });
 
-  // Step 4: Sibling lines
-  S.rs.filter(function(r){return r.type==='sibling';}).forEach(function(r){
-    var k=[r.f,r.t].sort().join('|'); if(seenSib[k])return; seenSib[k]=1;
-    var a=S.ps.find(function(p){return p.id===r.f;}),b=S.ps.find(function(p){return p.id===r.t;});
-    if(!a||!b)return;
-    lines.push('<line x1="'+pcx(a)+'" y1="'+pmid(a)+'" x2="'+pcx(b)+'" y2="'+pmid(b)+'" stroke="'+LC+'" stroke-width="1.5" stroke-dasharray="5,4" opacity=".6"/>');
-  });
+  // Sibling lines removed - connection shown through parent T-bar
 
   // Step 5: Other relations
   var oc={grandparent:'#8a9e6a',grandchild:'#8a9e6a',uncle:'#9aae9a',cousin:'#b8a898'};
@@ -1665,8 +1661,13 @@ function positionSibling(sibId, refId, parents){
   }
 }
 
+function getBirthYear(p){
+  if(!p.bdate) return 9999;
+  var yr = p.bdate.indexOf('/')>=0 ? parseInt(p.bdate.split('/')[2]) : parseInt(p.bdate.split('-')[0]);
+  return isNaN(yr) ? 9999 : yr;
+}
+
 function recenterChildren(parentIds){
-  // Find all children shared by these parents
   var allChildren = [];
   S.rs.forEach(function(r){
     if(r.type==='parent' && parentIds.indexOf(r.f)>=0){
@@ -1676,7 +1677,9 @@ function recenterChildren(parentIds){
   });
   if(allChildren.length===0) return;
 
-  // Find parent positions to get center
+  // Sort by birth year (oldest to youngest, left to right)
+  allChildren.sort(function(a,b){ return getBirthYear(a)-getBirthYear(b); });
+
   var parObjs = parentIds.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
   if(parObjs.length===0) return;
 
