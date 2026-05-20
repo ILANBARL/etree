@@ -1291,23 +1291,25 @@ function drawLines(svg) {
 
 function tBar(lines,dx,dy,kids,col){
   if(!kids.length)return;
-  var xs=kids.map(function(c){return pcx(c);});
-  var topY=Math.min.apply(null,kids.map(function(c){return ptop(c);}));
-  var barY=Math.max(dy+28,topY-28);
   if(kids.length===1){
-    var cx1=pcx(kids[0]);
-    lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-    if(Math.abs(dx-cx1)>4)lines.push('<line x1="'+dx+'" y1="'+barY+'" x2="'+cx1+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-    lines.push('<line x1="'+cx1+'" y1="'+barY+'" x2="'+cx1+'" y2="'+ptop(kids[0])+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    var child=kids[0];
+    var cx=pcx(child);
+    var cy=ptop(child);
+    lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    if(Math.abs(dx-cx)>4){
+      lines.push('<line x1="'+dx+'" y1="'+cy+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    }
   } else {
-    var bL=Math.min.apply(null,xs), bR=Math.max.apply(null,xs);
+    var xs=kids.map(function(c){return pcx(c);});
+    var topY=Math.min.apply(null,kids.map(function(c){return ptop(c);}));
+    var barY=Math.max(dy+20,topY-20);
+    var bL=Math.min.apply(null,xs),bR=Math.max.apply(null,xs);
     lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     lines.push('<line x1="'+bL+'" y1="'+barY+'" x2="'+bR+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     kids.forEach(function(c){lines.push('<line x1="'+pcx(c)+'" y1="'+barY+'" x2="'+pcx(c)+'" y2="'+ptop(c)+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');});
   }
 }
 
-// ─── DRAG ────────────────────────────────────────────────
 function mkDrag(card,p){
   var dr=false,sx,sy,ox,oy;
   function st(ex,ey){dr=true;sx=ex;sy=ey;ox=p.x||0;oy=p.y||0;card.style.zIndex=20;}
