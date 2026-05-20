@@ -649,12 +649,17 @@ function loadData() {
   }).catch(function() { loadLocal(); normalizeRels(); renderAll(); });
 }
 
+function cleanForFirestore(obj){
+  // Remove undefined values that cause Firestore 400 errors
+  return JSON.parse(JSON.stringify(obj, function(k,v){return v===undefined?null:v;}));
+}
+
 function saveData() {
   var ref = docRef();
-  var data = {ps:S.ps, rs:S.rs, at:new Date().toISOString()};
+  var data = cleanForFirestore({ps:S.ps, rs:S.rs, at:new Date().toISOString()});
   if (S.user && S.user.plan) data.plan = S.user.plan;
   if (ref) {
-    ref.set(data).then(function() { setSI('saved'); }).catch(function() { saveLocal(); });
+    ref.set(data).then(function() { setSI('saved'); }).catch(function(e) { console.log('Save error:',e); saveLocal(); });
   } else {
     saveLocal(); setSI('saved');
   }
@@ -812,6 +817,15 @@ function clrForm() {
   S.selRel=null; $('rls').style.display='none';
 }
 
+function togOpDec(){
+  var cb=$('op-deceased');
+  if(!cb)return;
+  if(event&&event.target!==cb)cb.checked=!cb.checked;
+  var row=$('op-dec-row'),daf=$('op-daf');
+  if(row)row.classList.toggle('on',cb.checked);
+  if(daf)daf.classList.toggle('show',cb.checked);
+}
+
 function togDec() {
   var cb=$('fdc');
   if(event&&event.target!==cb) cb.checked=!cb.checked;
@@ -921,8 +935,11 @@ function savePer() {
 }
 
 function addRel(a,b,type) {
-  if(!S.rs.find(function(r){return(r.f===a&&r.t===b)||(r.f===b&&r.t===a);}))
-    S.rs.push({f:a,t:b,type:type});
+  // Check exact match - don't block different parents with same child
+  var exists = S.rs.find(function(r){
+    return r.type===type && ((r.f===a&&r.t===b)||(r.f===b&&r.t===a));
+  });
+  if(!exists) S.rs.push({f:a,t:b,type:type});
 }
 
 // ─── OTHER PARENT ─────────────────────────────────────────
