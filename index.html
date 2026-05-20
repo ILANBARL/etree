@@ -462,6 +462,56 @@ html{height:100%}
   </div>
 </div>
 
+<!-- SIBLING PARENTS MODAL -->
+<div class="overlay" id="sibmo">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h3>&#128106; Padres de <span id="sib-name"></span></h3>
+      <button class="modal-close" onclick="skipSibParents()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#7a7268;margin-bottom:14px;line-height:1.5">
+        &#191;Qu&#233; padres tiene <strong id="sib-name2"></strong>
+        en relaci&#243;n con <strong id="sib-ref-name"></strong>?
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div onclick="setSibOption('same')" id="sib-opt-same"
+          style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;background:white">
+          <div style="font-size:14px;font-weight:500;color:#3a3630;margin-bottom:3px">
+            &#128106; Mismos padres
+          </div>
+          <div style="font-size:12px;color:#7a7268">Comparte padre y madre</div>
+        </div>
+        <div onclick="setSibOption('father')" id="sib-opt-father"
+          style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;background:white">
+          <div style="font-size:14px;font-weight:500;color:#3a3630;margin-bottom:3px">
+            &#128104; Solo mismo padre
+          </div>
+          <div style="font-size:12px;color:#7a7268">Medio hermano por parte de padre</div>
+        </div>
+        <div onclick="setSibOption('mother')" id="sib-opt-mother"
+          style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;background:white">
+          <div style="font-size:14px;font-weight:500;color:#3a3630;margin-bottom:3px">
+            &#128105; Solo misma madre
+          </div>
+          <div style="font-size:12px;color:#7a7268">Medio hermano por parte de madre</div>
+        </div>
+        <div onclick="setSibOption('none')" id="sib-opt-none"
+          style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;background:white">
+          <div style="font-size:14px;font-weight:500;color:#3a3630;margin-bottom:3px">
+            &#128279; Padres diferentes
+          </div>
+          <div style="font-size:12px;color:#7a7268">Sin padres en com&#250;n</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn btn-k" onclick="skipSibParents()">Omitir</button>
+      <button class="btn btn-g" onclick="saveSibParents()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <canvas id="xc" style="display:none"></canvas>
 <div id="toasts"></div>
 
@@ -897,6 +947,10 @@ function savePer() {
         addRel(S.aid, np.id, S.selRel);
       }
       closeModal('pmo'); closeDet(); renderAll(); autoSave();
+      // If sibling - ask about shared parents
+      if(S.selRel==='sibling'){
+        setTimeout(function(){showSibParents(np.id, S.aid);}, 400);
+      }
       if (S.selRel==='child'||S.selRel==='parent') {
         // Check if other parent already exists
         var otherParentExists = false;
@@ -1513,6 +1567,141 @@ function toast(msg,type){
 }
 
 // ─── INIT ────────────────────────────────────────────────
+// ─── SIBLING PARENTS ─────────────────────────────────────
+var SIB = {sibId:null, refId:null, option:null};
+
+function showSibParents(sibId, refId){
+  SIB.sibId = sibId;
+  SIB.refId = refId;
+  SIB.option = null;
+
+  var sib = S.ps.find(function(p){return p.id===sibId;});
+  var ref = S.ps.find(function(p){return p.id===refId;});
+  if(!sib||!ref) return;
+
+  var sibName = sib.first+' '+sib.last;
+  var refName = ref.first+' '+ref.last;
+
+  $('sib-name').textContent = sibName;
+  $('sib-name2').textContent = sibName;
+  $('sib-ref-name').textContent = refName;
+
+  // Reset selection
+  ['sib-opt-same','sib-opt-father','sib-opt-mother','sib-opt-none'].forEach(function(id){
+    var el = $(id);
+    if(el) el.style.borderColor = '#d4cfc8';
+  });
+
+  var mo = $('sibmo');
+  mo.style.display = 'flex';
+  mo.style.alignItems = 'center';
+  mo.style.justifyContent = 'center';
+  document.body.style.overflow = 'hidden';
+}
+
+function setSibOption(opt){
+  SIB.option = opt;
+  ['same','father','mother','none'].forEach(function(o){
+    var el = $('sib-opt-'+o);
+    if(el) el.style.borderColor = o===opt ? '#5a7a5a' : '#d4cfc8';
+    if(el) el.style.background = o===opt ? 'rgba(90,122,90,.08)' : 'white';
+  });
+}
+
+function saveSibParents(){
+  if(!SIB.option){ toast('Selecciona una opción','w'); return; }
+
+  var ref = S.ps.find(function(p){return p.id===SIB.refId;});
+  if(!ref){ closeSibModal(); return; }
+
+  // Get parents of the reference person
+  var refParents = S.rs
+    .filter(function(r){return r.type==='parent'&&r.t===SIB.refId;})
+    .map(function(r){return S.ps.find(function(p){return p.id===r.f;});})
+    .filter(Boolean);
+
+  // Sort by gender to identify father/mother
+  var father = refParents.find(function(p){return p.gender==='M';}) || refParents[0];
+  var mother = refParents.find(function(p){return p.gender==='F';}) || refParents[1];
+
+  if(SIB.option==='same'){
+    // Connect sibling to both parents
+    refParents.forEach(function(par){
+      addRel(par.id, SIB.sibId, 'parent');
+    });
+    // Position sibling next to reference person
+    positionSibling(SIB.sibId, SIB.refId, refParents);
+  } else if(SIB.option==='father' && father){
+    addRel(father.id, SIB.sibId, 'parent');
+    positionSibling(SIB.sibId, SIB.refId, [father]);
+  } else if(SIB.option==='mother' && mother){
+    addRel(mother.id, SIB.sibId, 'parent');
+    positionSibling(SIB.sibId, SIB.refId, [mother]);
+  }
+  // 'none' = no parent connection, sibling stays where placed
+
+  closeSibModal();
+  renderAll();
+  autoSave();
+  toast('Hermano/a conectado ✓','ok');
+}
+
+function positionSibling(sibId, refId, parents){
+  var sib = S.ps.find(function(p){return p.id===sibId;});
+  var ref = S.ps.find(function(p){return p.id===refId;});
+  if(!sib||!ref) return;
+
+  // Place at same Y as reference, to the right
+  sib.y = ref.y||0;
+  var siblingsAtY = S.ps.filter(function(p){
+    return p.id!==sibId && Math.abs((p.y||0)-(ref.y||0))<80;
+  });
+  var maxX = Math.max.apply(null, siblingsAtY.map(function(p){return(p.x||0)+CW;}));
+  sib.x = maxX + 20;
+
+  // Recenter all children under their parents
+  if(parents.length > 0){
+    recenterChildren(parents.map(function(p){return p.id;}));
+  }
+}
+
+function recenterChildren(parentIds){
+  // Find all children shared by these parents
+  var allChildren = [];
+  S.rs.forEach(function(r){
+    if(r.type==='parent' && parentIds.indexOf(r.f)>=0){
+      var ch = S.ps.find(function(p){return p.id===r.t;});
+      if(ch && allChildren.indexOf(ch)<0) allChildren.push(ch);
+    }
+  });
+  if(allChildren.length===0) return;
+
+  // Find parent positions to get center
+  var parObjs = parentIds.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
+  if(parObjs.length===0) return;
+
+  var parCenterX = parObjs.reduce(function(sum,p){return sum+pcx(p);},0)/parObjs.length;
+  var childY = allChildren[0].y||0;
+  var totalW = allChildren.length*CW + (allChildren.length-1)*20;
+  var startX = parCenterX - totalW/2;
+
+  allChildren.forEach(function(ch,i){
+    ch.x = startX + i*(CW+20);
+    ch.y = childY;
+  });
+}
+
+function skipSibParents(){
+  closeSibModal();
+  renderAll();
+}
+
+function closeSibModal(){
+  var mo = $('sibmo');
+  if(mo) mo.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
 window.addEventListener('load',function(){
   // Check share mode
   var params=new URLSearchParams(window.location.search);
