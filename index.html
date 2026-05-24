@@ -645,6 +645,26 @@ function smartPos(relType,anchorId){
 
   if(relType==='child'||relType==='grandchild'){
     var childY=ay+GAP_V;
+    // Also check spouse's children level
+    var spRel=S.rs.find(function(r){return(r.type==='spouse'||r.type==='spouse-div')&&(r.f===anchorId||r.t===anchorId);});
+    var spouseId=spRel?(spRel.f===anchorId?spRel.t:spRel.f):null;
+    var spouseObj=spouseId?S.ps.find(function(p){return p.id===spouseId;}):null;
+    if(spouseObj){
+      // Find children of both parents at child level
+      var existingChildren=S.rs.filter(function(r){
+        return r.type==='parent'&&(r.f===anchorId||r.f===spouseId);
+      }).map(function(r){return S.ps.find(function(p){return p.id===r.t;});}).filter(Boolean);
+      // Remove duplicates
+      var seen={};existingChildren=existingChildren.filter(function(p){if(seen[p.id])return false;seen[p.id]=true;return true;});
+      if(existingChildren.length>0){
+        childY=existingChildren[0].y||childY;
+        var maxX2=Math.max.apply(null,existingChildren.map(function(p){return(p.x||0)+CW;}));
+        return{x:maxX2+20,y:childY};
+      }
+      // No children yet - center below both parents
+      var midX=((ax)+(spouseObj.x||0)+CW)/2;
+      return{x:midX-CW/2,y:childY};
+    }
     var existingAtY=S.ps.filter(function(p){return p.id!==anchorId&&Math.abs((p.y||0)-childY)<80;});
     if(existingAtY.length>0){var maxX=Math.max.apply(null,existingAtY.map(function(p){return(p.x||0)+CW;}));return{x:maxX+20,y:childY};}
     return{x:ax,y:childY};
@@ -655,7 +675,7 @@ function smartPos(relType,anchorId){
     var leftSibs=siblingsAtY.filter(function(p){return(p.x||0)<ax;});
     var rightSibs=siblingsAtY.filter(function(p){return(p.x||0)>ax;});
     var SPOUSE_GAP=GAP_H;
-    var DOUBLE_GAP=GAP_H*2;
+    var DOUBLE_GAP=GAP_H+40;
     var spouseX=ax+SPOUSE_GAP;
     if(rightSibs.length>0){
       var needed=spouseX+CW+DOUBLE_GAP;
@@ -1085,6 +1105,20 @@ function drawLines(svg){
     if(!parentChildren[pid])parentChildren[pid]=[];
     if(parentChildren[pid].indexOf(cid)<0)parentChildren[pid].push(cid);
   });
+  // Draw spouse/partner lines
+  var seenSpouse={};
+  S.rs.filter(function(r){return r.type==='spouse'||r.type==='spouse-div';}).forEach(function(r){
+    var k=[r.f,r.t].sort().join('|');if(seenSpouse[k])return;seenSpouse[k]=1;
+    var a=S.ps.find(function(p){return p.id===r.f;});
+    var b=S.ps.find(function(p){return p.id===r.t;});
+    if(!a||!b)return;
+    var left=pcx(a)<=pcx(b)?a:b;
+    var right=pcx(a)<=pcx(b)?b:a;
+    var lineY=(pbot(left)+pbot(right))/2;
+    // Simple line between spouses
+    lines.push('<line x1="'+prgt(left)+'" y1="'+lineY+'" x2="'+plft(right)+'" y2="'+lineY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
+  });
+
   var drawnGroups={},drawnChildren={};
   Object.keys(childParents).forEach(function(cid){
     var parents=childParents[cid];
