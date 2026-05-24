@@ -132,19 +132,18 @@ html{height:100%}
     <div id="hdr-right"></div>
   </header>
   <div id="toolbar">
-    <button class="btn btn-g" onclick="openAddMenu(null)">&#xff0b; Agregar</button>
+    <button class="btn btn-g" id="tb-add" onclick="openAddMenu(null)" title="Agregar persona">&#xff0b; Agregar</button>
     <div class="sep"></div>
-    <button class="btn btn-o" onclick="saveTree()">&#128190; Guardar</button>
-    <button class="btn btn-k" onclick="openSearch()">&#128269;</button>
-    <button class="btn btn-k" onclick="expPDF()">PDF</button>
-    <button class="btn btn-k" onclick="fitView()">&#8862;</button>
-    <button class="btn btn-k" onclick="reorderAll()" title="Ordenar por nacimiento">&#128259;</button>
+    <button class="btn btn-o" id="tb-save" onclick="saveTree()" title="Guardar árbol en la nube">&#128190; Guardar</button>
+    <button class="btn btn-k" id="tb-search" onclick="openSearch()" title="Buscar persona y ver parentesco">&#128269;</button>
+    <button class="btn btn-k" id="tb-pdf" onclick="expPDF()" title="Exportar árbol a PDF">PDF</button>
+    <button class="btn btn-k" id="tb-fit" onclick="fitView()" title="Ajustar vista para ver todo el árbol">&#8862;</button>
     <div class="sep"></div>
-    <button class="btn btn-k" onclick="openModal('statsmo')">&#128202;</button>
-    <button class="btn btn-k" onclick="openModal('helpmo')">&#10067;</button>
-    <button class="btn btn-k" onclick="openModal('langmo')">&#127760;</button>
-    <button class="btn btn-o" onclick="openModal('plansmo')">&#128176;</button>
-    <button class="btn btn-k" onclick="checkMatches()">&#128279;</button>
+    <button class="btn btn-k" id="tb-stats" onclick="openModal('statsmo')" title="Ver estadísticas del árbol">&#128202;</button>
+    <button class="btn btn-k" id="tb-help" onclick="openModal('helpmo')" title="Ayuda y tutorial">&#10067;</button>
+    <button class="btn btn-k" id="tb-lang" onclick="openModal('langmo')" title="Cambiar idioma / Change language / שנה שפה">&#127760;</button>
+    <button class="btn btn-o" id="tb-plans" onclick="openModal('plansmo')" title="Ver planes y precios">&#128176;</button>
+    <button class="btn btn-k" id="tb-match" onclick="checkMatches()" title="Buscar coincidencias con otros árboles">&#128279;</button>
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
@@ -1508,7 +1507,7 @@ var LANGS={
     rel_spouse:'Cónyuge',rel_exspouse:'Ex-cónyuge',rel_unknown:'Familiar',
     no_relation:'Sin parentesco directo',relationship_with:'Parentesco con',
     match_title:'¡Coincidencia encontrada!',match_found:'coincidencia posible',
-    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar'},
+    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles'},
   en:{dir:'ltr',name:'English',
     rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
     rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
@@ -1518,7 +1517,7 @@ var LANGS={
     rel_spouse:'Spouse',rel_exspouse:'Ex-spouse',rel_unknown:'Relative',
     no_relation:'No direct relationship found',relationship_with:'Relationship with',
     match_title:'Match found!',match_found:'possible match',
-    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save'},
+    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees'},
   he:{dir:'rtl',name:'עברית',
     rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
     rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
@@ -1528,7 +1527,7 @@ var LANGS={
     rel_spouse:'בן/בת זוג',rel_exspouse:'גרוש/ה',rel_unknown:'קרוב משפחה',
     no_relation:'לא נמצאה קרבה',relationship_with:'קרבה עם',
     match_title:'נמצאה התאמה!',match_found:'התאמה אפשרית',
-    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור'}
+    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים'}
 };
 function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
 function setLang(lang){
@@ -1577,15 +1576,26 @@ function setLangLogin(lang){
 
 function updateToolbarLang(){
   var L=LANGS[LANG];
-  // Update key toolbar elements
-  var btns=document.querySelectorAll('#toolbar .btn-g');
-  btns.forEach(function(b){
-    if(b.textContent.indexOf('＋')>=0) b.textContent=(L.add||'＋ Agregar');
-  });
-  var saveBtns=document.querySelectorAll('#toolbar .btn-o');
-  saveBtns.forEach(function(b){
-    if(b.textContent.indexOf('💾')>=0||b.textContent.indexOf('Guardar')>=0||b.textContent.indexOf('Save')>=0||b.textContent.indexOf('שמור')>=0)
-      b.textContent=(L.save||'💾 Guardar');
+  // Update add button text
+  var addBtn=$('tb-add');
+  if(addBtn) addBtn.innerHTML='&#xff0b; '+(L.add_label||'Agregar');
+  // Update save button text  
+  var saveBtn=$('tb-save');
+  if(saveBtn) saveBtn.innerHTML='&#128190; '+(L.save_label||'Guardar');
+  // Update tooltips
+  var tips={
+    'tb-add': L.tip_add||'Agregar persona',
+    'tb-save': L.tip_save||'Guardar árbol',
+    'tb-search': L.tip_search||'Buscar persona',
+    'tb-pdf': L.tip_pdf||'Exportar PDF',
+    'tb-fit': L.tip_fit||'Ajustar vista',
+    'tb-stats': L.tip_stats||'Estadísticas',
+    'tb-help': L.tip_help||'Ayuda',
+    'tb-plans': L.tip_plans||'Planes y precios',
+    'tb-match': L.tip_match||'Buscar coincidencias'
+  };
+  Object.keys(tips).forEach(function(id){
+    var el=$(id);if(el)el.title=tips[id];
   });
 }
 
