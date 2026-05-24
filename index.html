@@ -639,7 +639,7 @@ function smartPos(relType,anchorId){
     var existingParents=existingParentIds.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
     var parentY=ay-GAP_V;
     if(parentY<50)parentY=50;
-    if(existingParents.length>0){var ep=existingParents[0];return{x:(ep.x||0)+GAP_H,y:ep.y||parentY};}
+    if(existingParents.length>0){var ep=existingParents[0];return{x:(ep.x||0)+CW+GAP_H,y:ep.y||parentY};}
     return{x:ax,y:parentY};
   }
 
@@ -922,7 +922,7 @@ function saveOP(){
     var cy=childobj.y||0;
     var py=cy-GAP_V;if(py<50)py=50;
     par1obj.y=py;par2obj.y=py;
-    var p1x=par1obj.x||200;par2obj.x=p1x+GAP_H;par1obj.x=p1x;
+    var p1x=par1obj.x||200;par2obj.x=p1x+CW+GAP_H;par1obj.x=p1x;
     var allCh=S.rs.filter(function(r){return r.type==='parent'&&(r.f===parent1Id||r.f===otherParentId);})
       .map(function(r){return S.ps.find(function(p){return p.id===r.t;});}).filter(Boolean);
     var seen={};allCh=allCh.filter(function(c){if(seen[c.id])return false;seen[c.id]=true;return true;});
