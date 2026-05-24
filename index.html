@@ -449,7 +449,7 @@ var RL = {parent:'Padre/Madre',child:'Hijo/a',spouse:'C\u00f3nyuge',
   'spouse-div':'Ex-c\u00f3nyuge',sibling:'Hermano/a',grandparent:'Abuelo/a',
   grandchild:'Nieto/a',uncle:'T\u00edo/a',cousin:'Primo/a'};
 var CW=134, CMH=80, CBH=152, LC='#c4a35a';
-var GAP_V=230, GAP_H=210;
+var GAP_V=230, GAP_H=20;
 
 // STATE
 var S = {ps:[], rs:[], user:null, zoom:1, eid:null, aid:null, selRel:null, selPhoto:null, tmr:null, ro:false,
@@ -674,16 +674,16 @@ function smartPos(relType,anchorId){
     var siblingsAtY=S.ps.filter(function(p){return p.id!==anchorId&&Math.abs((p.y||0)-ay)<80;}).sort(function(a,b){return(a.x||0)-(b.x||0);});
     var leftSibs=siblingsAtY.filter(function(p){return(p.x||0)<ax;});
     var rightSibs=siblingsAtY.filter(function(p){return(p.x||0)>ax;});
-    var SPOUSE_GAP=GAP_H;
-    var DOUBLE_GAP=GAP_H+40;
-    var spouseX=ax+SPOUSE_GAP;
+    var SPOUSE_GAP=20;   // 20px between spouses
+    var SIB_GAP=50;      // 50px between couple and siblings
+    var spouseX=ax+CW+SPOUSE_GAP;
     if(rightSibs.length>0){
-      var needed=spouseX+CW+DOUBLE_GAP;
+      var needed=spouseX+CW+SIB_GAP;
       var shift=needed-(rightSibs[0].x||0);
       if(shift>0)rightSibs.forEach(function(p){p.x=(p.x||0)+shift;});
     }
     if(leftSibs.length>0){
-      var leftNeeded=ax-DOUBLE_GAP-CW;
+      var leftNeeded=ax-SIB_GAP-CW;
       var leftShift=(leftSibs[leftSibs.length-1].x||0)-leftNeeded;
       if(leftShift>0)leftSibs.forEach(function(p){p.x=(p.x||0)-leftShift;});
     }
@@ -930,7 +930,7 @@ function saveOP(){
     var totalW=allCh.length*CW+(allCh.length-1)*20;
     var startX=midX-totalW/2;
     allCh.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-    allCh.forEach(function(c,i){c.x=startX+i*(CW+20);c.y=py+GAP_V;});
+    allCh.forEach(function(c,i){c.x=startX+i*(CW+30);c.y=py+GAP_V;});
   }
   $('opmo').style.display='none';document.body.style.overflow='';
   renderAll();autoSave();
@@ -1000,7 +1000,7 @@ function positionSibling(sibId,refId,parents){
   sib.y=ref.y||0;
   var siblingsAtY=S.ps.filter(function(p){return p.id!==sibId&&Math.abs((p.y||0)-(ref.y||0))<80;});
   var maxX=Math.max.apply(null,siblingsAtY.map(function(p){return(p.x||0)+CW;}));
-  sib.x=maxX+20;
+  sib.x=maxX+30;
   if(parents.length>0)recenterChildren(parents.map(function(p){return p.id;}));
 }
 
@@ -1020,7 +1020,7 @@ function recenterChildren(parentIds){
   var childY=allChildren[0].y||0;
   var totalW=allChildren.length*CW+(allChildren.length-1)*20;
   var startX=parCenterX-totalW/2;
-  allChildren.forEach(function(ch,i){ch.x=startX+i*(CW+20);ch.y=childY;});
+  allChildren.forEach(function(ch,i){ch.x=startX+i*(CW+30);ch.y=childY;});
 }
 
 function skipSibParents(){closeSibModal();renderAll();}
@@ -1271,7 +1271,7 @@ function reorderAll(){
     var childY=allCh[0].y||0;
     var totalW=allCh.length*CW+(allCh.length-1)*20;
     var startX=parCenterX-totalW/2;
-    allCh.forEach(function(ch,i){ch.x=startX+i*(CW+20);ch.y=childY;});
+    allCh.forEach(function(ch,i){ch.x=startX+i*(CW+30);ch.y=childY;});
   });
   renderAll();autoSave();toast('Orden por nacimiento \u2713','ok');
 }
