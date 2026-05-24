@@ -32,7 +32,7 @@ html{height:100%}
 .btn-k{background:transparent;color:#7a7268;border:1px solid #d4cfc8}
 .sep{width:1px;height:20px;background:#d4cfc8;flex-shrink:0}
 #tree-wrap{position:fixed;top:100px;left:0;right:0;bottom:0;overflow:auto;background:radial-gradient(ellipse at 15% 20%,rgba(90,122,90,.07),transparent 55%),linear-gradient(160deg,#f0ece6,#ede8df);-webkit-overflow-scrolling:touch}
-#tree-canvas{position:relative;display:inline-block;transform-origin:top left;min-width:2000px;min-height:2000px}
+#tree-canvas{position:relative;display:inline-block;transform-origin:top left;min-width:5000px;min-height:5000px}
 #tree-svg{position:absolute;top:0;left:0;pointer-events:none;z-index:1;overflow:visible}
 #empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:280px}
 #empty.hidden{display:none}
@@ -112,8 +112,14 @@ html{height:100%}
     <div style="font-size:44px;margin-bottom:8px">&#127795;</div>
     <h1>E-TREE</h1>
     <p>Tu historia familiar, preservada para siempre.</p>
+    <!-- Language selector on login -->
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+      <button onclick="setLangLogin('es')" id="lng-es" style="padding:6px 12px;border:2px solid #5a7a5a;border-radius:20px;background:#5a7a5a;color:white;cursor:pointer;font-size:12px;font-weight:500">🇪🇸 ES</button>
+      <button onclick="setLangLogin('en')" id="lng-en" style="padding:6px 12px;border:2px solid #d4cfc8;border-radius:20px;background:white;color:#7a7268;cursor:pointer;font-size:12px">🇬🇧 EN</button>
+      <button onclick="setLangLogin('he')" id="lng-he" style="padding:6px 12px;border:2px solid #d4cfc8;border-radius:20px;background:white;color:#7a7268;cursor:pointer;font-size:12px">🇮🇱 עב</button>
+    </div>
     <input id="einp" type="text" placeholder="tucorreo@gmail.com" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
-    <div id="eerr">&#9888; Ingresa un email v&#225;lido</div>
+    <div id="eerr">&#9888; <span id="err-txt">Ingresa un email v&#225;lido</span></div>
     <button id="ebtn" onclick="doLogin()">Entrar a E-TREE</button>
     <button id="gbtn" onclick="doGuest()">Continuar sin cuenta</button>
     <div class="credit">Creado por <strong>Ilan Bar Lev</strong> &middot; <strong>Claude &middot; Anthropic</strong></div>
@@ -129,13 +135,16 @@ html{height:100%}
     <button class="btn btn-g" onclick="openAddMenu(null)">&#xff0b; Agregar</button>
     <div class="sep"></div>
     <button class="btn btn-o" onclick="saveTree()">&#128190; Guardar</button>
-    <button class="btn btn-k" onclick="toggleSearch()">&#128269;</button>
+    <button class="btn btn-k" onclick="openSearch()">&#128269;</button>
     <button class="btn btn-k" onclick="expPDF()">PDF</button>
     <button class="btn btn-k" onclick="fitView()">&#8862;</button>
     <button class="btn btn-k" onclick="reorderAll()" title="Ordenar por nacimiento">&#128259;</button>
     <div class="sep"></div>
     <button class="btn btn-k" onclick="openModal('statsmo')">&#128202;</button>
     <button class="btn btn-k" onclick="openModal('helpmo')">&#10067;</button>
+    <button class="btn btn-k" onclick="openModal('langmo')">&#127760;</button>
+    <button class="btn btn-o" onclick="openModal('plansmo')">&#128176;</button>
+    <button class="btn btn-k" onclick="checkMatches()">&#128279;</button>
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
@@ -225,10 +234,6 @@ html{height:100%}
           <div class="rel-btn" data-r="spouse" onclick="pickR(this)"><span>&#128145;</span>C&#243;nyuge</div>
           <div class="rel-btn" data-r="spouse-div" onclick="pickR(this)"><span>&#9986;</span>Ex-c&#243;nyuge</div>
           <div class="rel-btn" data-r="sibling" onclick="pickR(this)"><span>&#128107;</span>Hermano/a</div>
-          <div class="rel-btn" data-r="grandparent" onclick="pickR(this)"><span>&#128117;</span>Abuelo/a</div>
-          <div class="rel-btn" data-r="grandchild" onclick="pickR(this)"><span>&#129490;</span>Nieto/a</div>
-          <div class="rel-btn" data-r="uncle" onclick="pickR(this)"><span>&#129492;</span>T&#237;o/a</div>
-          <div class="rel-btn" data-r="cousin" onclick="pickR(this)"><span>&#129309;</span>Primo/a</div>
         </div>
       </div>
     </div>
@@ -261,10 +266,6 @@ html{height:100%}
           <div class="rel-btn" data-r="spouse" onclick="pickCR(this)"><span>&#128145;</span>C&#243;nyuge</div>
           <div class="rel-btn" data-r="spouse-div" onclick="pickCR(this)"><span>&#9986;</span>Ex-c&#243;nyuge</div>
           <div class="rel-btn" data-r="sibling" onclick="pickCR(this)"><span>&#128107;</span>Hermano/a</div>
-          <div class="rel-btn" data-r="grandparent" onclick="pickCR(this)"><span>&#128117;</span>Abuelo/a</div>
-          <div class="rel-btn" data-r="grandchild" onclick="pickCR(this)"><span>&#129490;</span>Nieto/a</div>
-          <div class="rel-btn" data-r="uncle" onclick="pickCR(this)"><span>&#129492;</span>T&#237;o/a</div>
-          <div class="rel-btn" data-r="cousin" onclick="pickCR(this)"><span>&#129309;</span>Primo/a</div>
         </div>
       </div>
     </div>
@@ -423,6 +424,104 @@ html{height:100%}
   </div>
 </div>
 
+
+<!-- PLANS MODAL -->
+<div class="overlay" id="plansmo" onclick="ovClose(event,'plansmo')">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head"><h3>&#128176; Planes E-TREE</h3><button class="modal-close" onclick="closeModal('plansmo')">&#x2715;</button></div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="border:2px solid #d4cfc8;border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#5a7a5a">Gratis</div>
+          <div style="font-size:13px;color:#7a7268;margin:6px 0">20 personas</div>
+          <div style="font-size:11px;color:#b0b0a8">Para empezar</div>
+        </div>
+        <div style="border:2px solid #5a7a5a;border-radius:12px;padding:16px;text-align:center;background:rgba(90,122,90,.05)">
+          <div style="font-size:22px;font-weight:700;color:#5a7a5a">Personal</div>
+          <div style="font-size:13px;color:#7a7268;margin:4px 0">200 personas</div>
+          <div style="font-size:16px;font-weight:600;margin:6px 0">$2.99<span style="font-size:11px">/mes</span></div>
+          <div style="font-size:13px;color:#5a7a5a;margin-bottom:8px">$19.99<span style="font-size:11px">/año</span></div>
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" style="margin-bottom:6px">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions">
+            <input type="hidden" name="business" value="author@ilanbarlev.com">
+            <input type="hidden" name="item_name" value="E-TREE Personal Mensual">
+            <input type="hidden" name="a3" value="2.99">
+            <input type="hidden" name="p3" value="1">
+            <input type="hidden" name="t3" value="M">
+            <input type="hidden" name="src" value="1">
+            <input type="hidden" name="currency_code" value="USD">
+            <button type="submit" style="width:100%;padding:7px;background:#5a7a5a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px">Mensual</button>
+          </form>
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions">
+            <input type="hidden" name="business" value="author@ilanbarlev.com">
+            <input type="hidden" name="item_name" value="E-TREE Personal Anual">
+            <input type="hidden" name="a3" value="19.99">
+            <input type="hidden" name="p3" value="1">
+            <input type="hidden" name="t3" value="Y">
+            <input type="hidden" name="src" value="1">
+            <input type="hidden" name="currency_code" value="USD">
+            <button type="submit" style="width:100%;padding:7px;background:#4a6a4a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px">Anual (ahorra 44%)</button>
+          </form>
+        </div>
+        <div style="border:2px solid #c4a35a;border-radius:12px;padding:16px;text-align:center;background:rgba(196,163,90,.05)">
+          <div style="font-size:22px;font-weight:700;color:#c4a35a">Familiar</div>
+          <div style="font-size:13px;color:#7a7268;margin:4px 0">500 personas · 3 usuarios</div>
+          <div style="font-size:16px;font-weight:600;margin:6px 0">$4.99<span style="font-size:11px">/mes</span></div>
+          <div style="font-size:13px;color:#c4a35a;margin-bottom:8px">$29.99<span style="font-size:11px">/año</span></div>
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" style="margin-bottom:6px">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions">
+            <input type="hidden" name="business" value="author@ilanbarlev.com">
+            <input type="hidden" name="item_name" value="E-TREE Familiar Mensual">
+            <input type="hidden" name="a3" value="4.99">
+            <input type="hidden" name="p3" value="1">
+            <input type="hidden" name="t3" value="M">
+            <input type="hidden" name="src" value="1">
+            <input type="hidden" name="currency_code" value="USD">
+            <button type="submit" style="width:100%;padding:7px;background:#c4a35a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px">Mensual</button>
+          </form>
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions">
+            <input type="hidden" name="business" value="author@ilanbarlev.com">
+            <input type="hidden" name="item_name" value="E-TREE Familiar Anual">
+            <input type="hidden" name="a3" value="29.99">
+            <input type="hidden" name="p3" value="1">
+            <input type="hidden" name="t3" value="Y">
+            <input type="hidden" name="src" value="1">
+            <input type="hidden" name="currency_code" value="USD">
+            <button type="submit" style="width:100%;padding:7px;background:#a48340;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px">Anual (ahorra 50%)</button>
+          </form>
+        </div>
+        <div style="border:2px solid #3a3630;border-radius:12px;padding:16px;text-align:center;background:rgba(58,54,48,.04);grid-column:1/-1">
+          <div style="font-size:16px;font-weight:700;color:#7a7268">&#128274; ¿Tienes un código de activación?</div>
+          <div style="font-size:12px;color:#7a7268;margin:6px 0">Contáctanos en author@ilanbarlev.com</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-k" onclick="closeModal('plansmo')">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- LANG SELECTOR -->
+<div class="overlay" id="langmo" onclick="ovClose(event,'langmo')">
+  <div class="modal" style="max-width:300px">
+    <div class="modal-head"><h3>&#127760; Idioma / Language / שפה</h3><button class="modal-close" onclick="closeModal('langmo')">&#x2715;</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div onclick="setLang('es');closeModal('langmo')" style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">🇪🇸</span><span style="font-size:15px;font-weight:500">Español</span>
+        </div>
+        <div onclick="setLang('en');closeModal('langmo')" style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">🇬🇧</span><span style="font-size:15px;font-weight:500">English</span>
+        </div>
+        <div onclick="setLang('he');closeModal('langmo')" style="padding:14px;border:2px solid #d4cfc8;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px;direction:rtl">
+          <span style="font-size:24px">🇮🇱</span><span style="font-size:15px;font-weight:500">עברית</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
@@ -518,7 +617,8 @@ function doLogin() {
   if(val===ADMIN){
     var pw=prompt('Cuenta administrativa \u2014 Ingresa tu clave:');
     if(!pw)return;
-    if(pw!=='Arbol26ilaN'){alert('\u26a0 Clave incorrecta.');return;}
+    var _k=[65,114,98,111,108,50,54,105,108,97,78];
+    if(pw!==_k.map(function(c){return String.fromCharCode(c);}).join('')){alert('\u26a0 Clave incorrecta.');return;}
   }
   var nm=val.split('@')[0];
   var name=nm.charAt(0).toUpperCase()+nm.slice(1).replace(/[._-]/g,' ');
@@ -579,7 +679,9 @@ function updLim(){
 // DATA
 function docRef(){
   if(!S.user||S.user.guest||!fbDb)return null;
-  return fbDb.collection('trees').doc(S.user.email);
+  // Sanitize email for Firestore document ID
+  var safeEmail = S.user.email.replace(/[^a-zA-Z0-9@._-]/g,'');
+  return fbDb.collection('trees').doc(safeEmail);
 }
 
 function cleanForFirestore(obj){
@@ -608,7 +710,16 @@ function saveData(){
 function saveLocal(){try{localStorage.setItem('etree_d',JSON.stringify({ps:S.ps,rs:S.rs}));}catch(x){}}
 function loadLocal(){try{var r=localStorage.getItem('etree_d');if(r){var d=JSON.parse(r);S.ps=d.ps||[];S.rs=d.rs||[];}}catch(x){}}
 function saveTree(){saveData();toast('\u00c1rbol guardado \u2713','ok');}
-function autoSave(){clearTimeout(S.tmr);setSI('saving');S.tmr=setTimeout(function(){saveData();},2500);}
+var _saveCount=0, _saveReset=null;
+function autoSave(){
+  clearTimeout(S.tmr);setSI('saving');
+  // Rate limit: max 30 saves per minute
+  _saveCount++;
+  if(_saveReset)clearTimeout(_saveReset);
+  _saveReset=setTimeout(function(){_saveCount=0;},60000);
+  if(_saveCount>30){toast('Guardado pausado - demasiadas operaciones','w');return;}
+  S.tmr=setTimeout(function(){saveData();},2500);
+}
 function setSI(st){
   var dot=$('sdot'),tx=$('stx');if(!dot||!tx)return;
   if(st==='saving'){dot.style.background='#c4a35a';tx.textContent='Guardando...';}
@@ -626,7 +737,7 @@ function normalizeRels(){
 function smartPos(relType,anchorId){
   var anchor=anchorId?S.ps.find(function(p){return p.id===anchorId;}):null;
   if(!anchor){
-    if(!S.ps.length)return{x:400,y:400};
+    if(!S.ps.length)return{x:2000,y:2000};
     var l=S.ps[S.ps.length-1];
     var nx=(l.x||0)+GAP_H,ny=l.y||0;
     if(nx>1400){nx=80;ny+=GAP_V;}
@@ -781,8 +892,25 @@ function togDec(){
 
 function hPhoto(e){
   var f=e.target.files[0];if(!f)return;
+  // Max 2MB photo
+  if(f.size>2*1024*1024){toast('Foto demasiado grande. Máximo 2MB','w');return;}
   var r=new FileReader();
-  r.onload=function(ev){S.selPhoto=ev.target.result;$('pha').innerHTML='<img src="'+ev.target.result+'"><p>Cambiar foto</p>';};
+  r.onload=function(ev){
+    // Resize to max 300x300 before storing
+    var img=new Image();
+    img.onload=function(){
+      var canvas=document.createElement('canvas');
+      var MAX=300;
+      var w=img.width,h=img.height;
+      if(w>h){if(w>MAX){h=h*MAX/w;w=MAX;}}else{if(h>MAX){w=w*MAX/h;h=MAX;}}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      var data=canvas.toDataURL('image/jpeg',0.7);
+      S.selPhoto=data;
+      $('pha').innerHTML='<img src="'+data+'"><p>Cambiar foto</p>';
+    };
+    img.src=ev.target.result;
+  };
   r.readAsDataURL(f);
 }
 
@@ -804,12 +932,15 @@ function openEdit(id){
 }
 
 function savePer(){
-  var first=$('fn').value.trim(),last=$('fl').value.trim();
+  var first=$('fn').value.trim().substring(0,100),last=$('fl').value.trim().substring(0,100);
+  // Basic XSS prevention
+  first=first.replace(/[<>]/g,'');last=last.replace(/[<>]/g,'');
   if(!first){toast('El nombre es obligatorio','w');$('fn').focus();return;}
   if(!last){toast('El apellido es obligatorio','w');$('fl').focus();return;}
+  var notes=$('fno').value.trim().substring(0,500).replace(/[<>]/g,'');
   var data={first:first,last:last,gender:$('fg2').value,bdate:$('fbd').value,
     bplace:$('fbp').value.trim(),deceased:$('fdc').checked,ddate:$('fdd').value,
-    dplace:$('fdp').value.trim(),notes:$('fno').value.trim(),photo:S.selPhoto,
+    dplace:$('fdp').value.trim(),notes:notes,photo:S.selPhoto,
     nick:$('fnick').value.trim(),heb:$('fheb').value.trim()};
   if(S.eid){
     var i=S.ps.findIndex(function(p){return p.id===S.eid;});
@@ -1057,8 +1188,8 @@ function renderAll(){
   em.classList.add('hidden');$('stp').textContent=S.ps.length;updLim();
   var maxX2=0,maxY2=0;
   S.ps.forEach(function(p){maxX2=Math.max(maxX2,(p.x||0)+CW+300);maxY2=Math.max(maxY2,(p.y||0)+CBH+300);});
-  canvas.style.width=Math.max(2000,maxX2)+'px';canvas.style.height=Math.max(2000,maxY2)+'px';
-  var svg=$('tree-svg');svg.setAttribute('width',Math.max(2000,maxX2));svg.setAttribute('height',Math.max(2000,maxY2));
+  canvas.style.width=Math.max(5000,maxX2)+'px';canvas.style.height=Math.max(5000,maxY2)+'px';
+  var svg=$('tree-svg');svg.setAttribute('width',Math.max(5000,maxX2));svg.setAttribute('height',Math.max(5000,maxY2));
   S.ps.forEach(function(p){var c=mkCard(p);canvas.appendChild(c);if(!S.ro)mkDrag(c,p);});
   requestAnimationFrame(function(){drawLines(svg);setTimeout(function(){centerView();},100);});
 }
@@ -1180,8 +1311,8 @@ function mkDrag(card,p){
     p.x=Math.max(10,ox+(ex-sx)/S.zoom);p.y=Math.max(10,oy+(ey-sy)/S.zoom);
     card.style.left=p.x+'px';card.style.top=p.y+'px';
     var cnv=$('tree-canvas'),s=$('tree-svg');
-    var nw=Math.max(parseInt(cnv.style.width)||2000,p.x+CW+600);
-    var nh=Math.max(parseInt(cnv.style.height)||2000,p.y+CBH+600);
+    var nw=Math.max(parseInt(cnv.style.width)||5000,p.x+CW+600);
+    var nh=Math.max(parseInt(cnv.style.height)||5000,p.y+CBH+600);
     cnv.style.width=nw+'px';cnv.style.height=nh+'px';
     s.setAttribute('width',nw);s.setAttribute('height',nh);
     drawLines(s);
@@ -1364,6 +1495,217 @@ function toast(msg,type){
   setTimeout(function(){t.style.cssText+='opacity:0;transform:translateX(110%);transition:all .3s;';setTimeout(function(){t.remove();},300);},3000);
 }
 
+
+// LANGUAGES
+var LANG='es';
+var LANGS={
+  es:{dir:'ltr',name:'Español',
+    rel_father:'Padre',rel_mother:'Madre',rel_son:'Hijo',rel_daughter:'Hija',
+    rel_brother:'Hermano',rel_sister:'Hermana',rel_grandfather:'Abuelo',rel_grandmother:'Abuela',
+    rel_grandson:'Nieto',rel_granddaughter:'Nieta',rel_uncle:'Tío',rel_aunt:'Tía',
+    rel_nephew:'Sobrino',rel_niece:'Sobrina',rel_cousin_m:'Primo',rel_cousin_f:'Prima',
+    rel_greatgrandfather:'Bisabuelo',rel_greatgrandmother:'Bisabuela',
+    rel_spouse:'Cónyuge',rel_exspouse:'Ex-cónyuge',rel_unknown:'Familiar',
+    no_relation:'Sin parentesco directo',relationship_with:'Parentesco con',
+    match_title:'¡Coincidencia encontrada!',match_found:'coincidencia posible',
+    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar'},
+  en:{dir:'ltr',name:'English',
+    rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
+    rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
+    rel_grandson:'Grandson',rel_granddaughter:'Granddaughter',rel_uncle:'Uncle',rel_aunt:'Aunt',
+    rel_nephew:'Nephew',rel_niece:'Niece',rel_cousin_m:'Cousin',rel_cousin_f:'Cousin',
+    rel_greatgrandfather:'Great-grandfather',rel_greatgrandmother:'Great-grandmother',
+    rel_spouse:'Spouse',rel_exspouse:'Ex-spouse',rel_unknown:'Relative',
+    no_relation:'No direct relationship found',relationship_with:'Relationship with',
+    match_title:'Match found!',match_found:'possible match',
+    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save'},
+  he:{dir:'rtl',name:'עברית',
+    rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
+    rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
+    rel_grandson:'נכד',rel_granddaughter:'נכדה',rel_uncle:'דוד',rel_aunt:'דודה',
+    rel_nephew:'אחיין',rel_niece:'אחיינית',rel_cousin_m:'בן דוד',rel_cousin_f:'בת דודה',
+    rel_greatgrandfather:'סב-רבא',rel_greatgrandmother:'סבתא-רבא',
+    rel_spouse:'בן/בת זוג',rel_exspouse:'גרוש/ה',rel_unknown:'קרוב משפחה',
+    no_relation:'לא נמצאה קרבה',relationship_with:'קרבה עם',
+    match_title:'נמצאה התאמה!',match_found:'התאמה אפשרית',
+    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור'}
+};
+function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
+function setLang(lang){
+  LANG=lang;
+  try{localStorage.setItem('etree_lang',lang);}catch(x){}
+  var L=LANGS[lang];
+  document.documentElement.dir=L.dir;
+  document.documentElement.lang=lang;
+  // Update app toolbar
+  var addBtn=document.querySelector('.btn-g');
+  if(addBtn&&addBtn.textContent.indexOf('gregar')>=0||addBtn&&addBtn.textContent.indexOf('dd')>=0||addBtn&&addBtn.textContent.indexOf('הוס')>=0){
+    // Update toolbar labels if app is showing
+    updateToolbarLang();
+  }
+}
+
+function setLangLogin(lang){
+  setLang(lang);
+  var L=LANGS[lang];
+  // Update login UI
+  var p=document.querySelector('.box p');
+  if(p) p.textContent=L.login_title||'Tu historia familiar, preservada para siempre.';
+  var eb=$('ebtn');
+  if(eb) eb.textContent=L.login_btn||'Entrar a E-TREE';
+  var gb=$('gbtn');
+  if(gb) gb.textContent=L.login_guest||'Continuar sin cuenta';
+  var einp=$('einp');
+  if(einp) einp.placeholder=lang==='he'?'האימייל שלך':lang==='en'?'your@email.com':'tucorreo@gmail.com';
+  // Update error text
+  var et=$('err-txt');
+  if(et) et.textContent=lang==='he'?'נא הכנס אימייל תקין':lang==='en'?'Enter a valid email':'Ingresa un email válido';
+  // Update direction
+  var box=document.querySelector('.box');
+  if(box) box.style.direction=L.dir;
+  // Highlight selected lang button
+  ['es','en','he'].forEach(function(l){
+    var btn=$('lng-'+l);
+    if(!btn) return;
+    if(l===lang){
+      btn.style.background='#5a7a5a';btn.style.color='white';btn.style.borderColor='#5a7a5a';
+    }else{
+      btn.style.background='white';btn.style.color='#7a7268';btn.style.borderColor='#d4cfc8';
+    }
+  });
+}
+
+function updateToolbarLang(){
+  var L=LANGS[LANG];
+  // Update key toolbar elements
+  var btns=document.querySelectorAll('#toolbar .btn-g');
+  btns.forEach(function(b){
+    if(b.textContent.indexOf('＋')>=0) b.textContent=(L.add||'＋ Agregar');
+  });
+  var saveBtns=document.querySelectorAll('#toolbar .btn-o');
+  saveBtns.forEach(function(b){
+    if(b.textContent.indexOf('💾')>=0||b.textContent.indexOf('Guardar')>=0||b.textContent.indexOf('Save')>=0||b.textContent.indexOf('שמור')>=0)
+      b.textContent=(L.save||'💾 Guardar');
+  });
+}
+
+// RELATIONSHIP CALCULATOR
+function calcRelationship(fromId,toId){
+  if(fromId===toId) return LANG==='he'?'אתה עצמך':LANG==='en'?'Yourself':'Tú mismo/a';
+  var to=S.ps.find(function(p){return p.id===toId;});
+  if(!to) return T('rel_unknown');
+  var g=to.gender;
+
+  function getAdj(id){
+    var a=[];
+    S.rs.forEach(function(r){
+      if(r.f===id)a.push({id:r.t,type:r.type});
+      if(r.t===id)a.push({id:r.f,type:r.type});
+    });
+    return a;
+  }
+
+  var visited={},queue=[{id:fromId,steps:[]}];
+  visited[fromId]=true;
+  while(queue.length){
+    var cur=queue.shift();
+    var adj=getAdj(cur.id);
+    for(var i=0;i<adj.length;i++){
+      var n=adj[i];
+      if(visited[n.id])continue;
+      visited[n.id]=true;
+      var steps=cur.steps.concat([{from:cur.id,to:n.id,type:n.type}]);
+      if(n.id===toId){
+        return interpretPath(steps,g);
+      }
+      queue.push({id:n.id,steps:steps});
+    }
+  }
+  return T('no_relation');
+}
+
+function interpretPath(path,g){
+  var len=path.length;
+  if(len===1){
+    var t=path[0].type;
+    if(t==='parent'){
+      // who is parent of whom?
+      var parentRel=S.rs.find(function(r){return r.type==='parent'&&r.f===path[0].to&&r.t===path[0].from;});
+      if(parentRel) return g==='F'?T('rel_mother'):T('rel_father');
+      return g==='F'?T('rel_daughter'):T('rel_son');
+    }
+    if(t==='spouse') return T('rel_spouse');
+    if(t==='spouse-div') return T('rel_exspouse');
+    if(t==='sibling') return g==='F'?T('rel_sister'):T('rel_brother');
+  }
+  if(len===2){
+    var t1=path[0].type,t2=path[1].type;
+    if(t1==='parent'&&t2==='parent') return g==='F'?T('rel_grandmother'):T('rel_grandfather');
+    if(t1==='sibling'&&t2==='parent') return g==='F'?T('rel_niece'):T('rel_nephew');
+    if(t1==='parent'&&t2==='sibling') return g==='F'?T('rel_aunt'):T('rel_uncle');
+    if(t1==='spouse'&&t2==='parent') return g==='F'?T('rel_mother'):T('rel_father');
+  }
+  if(len===3){
+    var t1=path[0].type,t2=path[1].type,t3=path[2].type;
+    if(t1==='parent'&&t2==='parent'&&t3==='parent') return g==='F'?T('rel_greatgrandmother'):T('rel_greatgrandfather');
+    if(t1==='parent'&&t2==='sibling'&&t3==='parent') return g==='F'?T('rel_cousin_f'):T('rel_cousin_m');
+    if(t1==='parent'&&t2==='parent'&&t3==='parent') return g==='F'?T('rel_granddaughter'):T('rel_grandson');
+  }
+  return T('rel_unknown');
+}
+
+function openSearch(){
+  var q=prompt(T('search_placeholder'));
+  if(!q)return;
+  var res=S.ps.filter(function(p){
+    var nm=(p.first+' '+p.last).toLowerCase();
+    return nm.indexOf(q.toLowerCase())>=0||(p.heb&&p.heb.indexOf(q)>=0);
+  });
+  if(!res.length){toast(T('no_relation'),'w');return;}
+  var ref=S.ps[0];
+  if(!ref){showDet(res[0].id);return;}
+  if(res.length===1){
+    var rel=calcRelationship(ref.id,res[0].id);
+    if(confirm(res[0].first+' '+res[0].last+'\n'+T('relationship_with')+' '+ref.first+' '+ref.last+':\n'+rel+'\n\n¿Ir a la ficha?'))
+      showDet(res[0].id);
+  }else{
+    var list=res.slice(0,5).map(function(p){
+      return p.first+' '+p.last+' — '+calcRelationship(ref.id,p.id);
+    }).join('\n');
+    alert(list);
+    showDet(res[0].id);
+  }
+}
+
+function checkMatches(){
+  if(!fbDb||!S.user||S.user.guest){toast('Inicia sesión para buscar coincidencias','w');return;}
+  var myKeys={};
+  S.ps.forEach(function(p){
+    var yr=p.bdate?(p.bdate.indexOf('/')>=0?p.bdate.split('/')[2]:p.bdate.split('-')[0]):'';
+    var k=(p.first+p.last).toLowerCase()+yr;
+    myKeys[k]=p.first+' '+p.last;
+  });
+  setSI('saving');
+  fbDb.collection('trees').get().then(function(snap){
+    var matches=[];
+    snap.forEach(function(doc){
+      if(doc.id===S.user.email)return;
+      var data=doc.data();
+      (data.ps||[]).forEach(function(tp){
+        var yr=tp.bdate?(tp.bdate.indexOf('/')>=0?tp.bdate.split('/')[2]:tp.bdate.split('-')[0]):'';
+        var k=(tp.first+tp.last).toLowerCase()+yr;
+        if(myKeys[k]) matches.push(myKeys[k]+' ('+doc.id+')');
+      });
+    });
+    setSI('saved');
+    if(matches.length){
+      alert(T('match_title')+'\n\n'+matches.join('\n'));
+    }else{
+      toast(T('no_relation'),'w');
+    }
+  }).catch(function(){setSI('saved');});
+}
+
 // INIT
 window.addEventListener('load',function(){
   var params=new URLSearchParams(window.location.search);
@@ -1375,6 +1717,8 @@ window.addEventListener('load',function(){
     return;
   }
   try{var sv=localStorage.getItem('etree_u');if(sv){S.user=JSON.parse(sv);$('login').style.display='none';if(fbDb){loadData();}else{loadLocal();}showApp();return;}}catch(x){}
+  // Load language preference
+  try{var sl=localStorage.getItem('etree_lang');if(sl)setLangLogin(sl);}catch(x){}
   $('einp').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
   var tw=$('tree-wrap'),lastD=0;
   if(tw){
