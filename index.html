@@ -1485,8 +1485,42 @@ function tBar(lines,dx,dy,kids,col){
   if(!kids.length)return;
   if(kids.length===1){
     var child=kids[0];var cx=pcx(child);var cy=ptop(child);
-    lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-    if(Math.abs(dx-cx)>4)lines.push('<line x1="'+dx+'" y1="'+cy+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    // Check if child has a spouse - if so, draw curve AWAY from spouse
+    var childSpouse=null;
+    S.rs.forEach(function(r){
+      if(r.type==='spouse'||r.type==='spouse-div'){
+        if(r.f===child.id) childSpouse=S.ps.find(function(p){return p.id===r.t;});
+        else if(r.t===child.id) childSpouse=S.ps.find(function(p){return p.id===r.f;});
+      }
+    });
+    if(Math.abs(dx-cx)<4){
+      // Centered - straight line down
+      lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    } else if(childSpouse){
+      // Child has spouse - line goes UP from child, AWAY from spouse, then to parent line
+      var spouseX=childSpouse.x||0;
+      var childX=child.x||0;
+      // Determine which side of card to exit from (opposite of spouse)
+      var exitX;
+      if(spouseX>childX){
+        // Spouse is to the right - exit from LEFT side of child's top edge
+        exitX=cx-CW/4; // 1/4 from left
+      } else {
+        // Spouse is to the left - exit from RIGHT side of child's top edge
+        exitX=cx+CW/4; // 1/4 from right
+      }
+      // Draw: from exitX,cy up to a curve point, then horizontal to dx, then up to parent line
+      var curveY=cy-30; // small vertical from child first
+      lines.push('<line x1="'+exitX+'" y1="'+cy+'" x2="'+exitX+'" y2="'+curveY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      lines.push('<line x1="'+exitX+'" y1="'+curveY+'" x2="'+dx+'" y2="'+curveY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      lines.push('<line x1="'+dx+'" y1="'+curveY+'" x2="'+dx+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    } else {
+      // No spouse - regular inverted T
+      var midY=dy+(cy-dy)/2;
+      lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+midY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      lines.push('<line x1="'+dx+'" y1="'+midY+'" x2="'+cx+'" y2="'+midY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      lines.push('<line x1="'+cx+'" y1="'+midY+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    }
   }else{
     var xs=kids.map(function(c){return pcx(c);});
     var topY=Math.min.apply(null,kids.map(function(c){return ptop(c);}));
