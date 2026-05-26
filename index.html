@@ -52,6 +52,8 @@ html{height:100%}
 .card-date{font-size:10px;color:#888;text-align:center;margin-top:2px;white-space:nowrap;overflow:hidden}
 .card-actions{display:flex;gap:2px;padding:3px 4px;border-top:1px solid #eee;background:#f8f8f8;justify-content:center;opacity:0;transition:opacity .15s}
 .card:hover .card-actions,.card.active .card-actions{opacity:1}
+.card.selected{box-shadow:0 0 0 3px rgba(196,163,90,.7);z-index:5}
+#sel-rect{position:absolute;border:2px dashed #5a7a5a;background:rgba(90,122,90,.1);pointer-events:none;display:none;z-index:1000}
 .ca{width:26px;height:26px;border:none;border-radius:50%;cursor:pointer;background:rgba(247,243,238,.95);font-size:12px;display:flex;align-items:center;justify-content:center}
 #zoom{position:fixed;bottom:20px;left:16px;display:flex;flex-direction:column;gap:3px;z-index:60}
 .zb{width:36px;height:36px;background:white;border:1px solid #d4cfc8;border-radius:8px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#7a7268;touch-action:manipulation}
@@ -144,6 +146,8 @@ html{height:100%}
     <button class="btn btn-k" id="tb-lang" onclick="openModal('langmo')" title="Cambiar idioma / Change language / שנה שפה">&#127760;</button>
     <button class="btn btn-o" id="tb-plans" onclick="openModal('plansmo')" title="Ver planes y precios">&#128176;</button>
     <button class="btn btn-k" id="tb-match" onclick="checkMatches()" title="Buscar coincidencias con otros árboles">&#128279;</button>
+    <button class="btn btn-k" id="tb-reorg" onclick="autoReorganize()" title="Reorganizar árbol automáticamente">&#128260;</button>
+    <button class="btn btn-k" id="tb-about" onclick="openAbout()" title="Acerca de E-TREE">&#8505;</button>
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
@@ -153,7 +157,7 @@ html{height:100%}
     </div>
   </div>
   <div id="tree-wrap">
-    <div id="tree-canvas"><svg id="tree-svg"></svg></div>
+    <div id="tree-canvas"><svg id="tree-svg"></svg><div id="sel-rect"></div></div>
     <div id="empty">
       <div style="font-size:44px;margin-bottom:12px">&#128106;</div>
       <h3>Comienza tu &#225;rbol</h3>
@@ -521,6 +525,58 @@ html{height:100%}
   </div>
 </div>
 
+<!-- ABOUT MODAL -->
+<div class="overlay" id="aboutmo" onclick="ovClose(event,'aboutmo')">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head"><h3 id="about-title">Acerca de E-TREE</h3><button class="modal-close" onclick="closeModal('aboutmo')">&#x2715;</button></div>
+    <div class="modal-body" style="text-align:center">
+      <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
+      <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.0 &middot; 2025</div>
+      <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
+        <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
+        <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
+          Aplicación de árbol genealógico personal. Simple, privada y multilingüe. 
+          Preserva tu historia familiar para las próximas generaciones.
+        </div>
+      </div>
+      <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
+        <div style="font-size:12px;color:#7a7268;margin-bottom:8px" id="about-creator-label">Creado por</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#5a7a5a,#c4a35a);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px">I</div>
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#3a3630">Ilan Bar Lev</div>
+            <div style="font-size:12px;color:#7a7268">Rodolfo Richard Vasquez Guerra</div>
+            <div style="font-size:11px;color:#7a7268">&#9997; Escritor &middot; Desarrollador</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
+        <div style="font-size:12px;color:#7a7268;margin-bottom:8px" id="about-tech-label">Tecnología</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="font-size:20px">&#129302;</div>
+          <div>
+            <div style="font-size:13px;font-weight:500" id="about-claude-txt">Desarrollado con asistencia de Claude</div>
+            <div style="font-size:11px;color:#7a7268">Anthropic &middot; Claude Sonnet</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:20px">&#128293;</div>
+          <div>
+            <div style="font-size:13px;font-weight:500">Firebase &middot; Firestore</div>
+            <div style="font-size:11px;color:#7a7268">Google &middot; Almacenamiento en la nube</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#b0b0a8" id="about-rights">&#169; 2025 Ilan Bar Lev. Todos los derechos reservados.</div>
+      <div style="margin-top:8px">
+        <a href="mailto:author@ilanbarlev.com" style="font-size:12px;color:#5a7a5a;text-decoration:none">author@ilanbarlev.com</a>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-g" onclick="closeModal('aboutmo')" id="about-close-btn">Cerrar</button></div>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
@@ -654,6 +710,7 @@ function showApp(){
   app.style.flexDirection='column';
   app.style.height='100vh';
   updHdr(); updLim(); renderAll();
+  setTimeout(initSelection,500);
   setTimeout(function(){if(S.ps.length>0)scrollToId(S.ps[0].id);},600);
   try{
     if(!localStorage.getItem('etree_tut')){
@@ -749,8 +806,40 @@ function smartPos(relType,anchorId){
     var existingParents=existingParentIds.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
     var parentY=ay-GAP_V;
     if(parentY<50)parentY=50;
-    if(existingParents.length>0){var ep=existingParents[0];return{x:(ep.x||0)+CW+GAP_H,y:ep.y||parentY};}
-    return{x:ax,y:parentY};
+
+    // Find spouse of anchor
+    var spouseRels=S.rs.filter(function(r){return(r.type==='spouse'||r.type==='spouse-div')&&(r.f===anchorId||r.t===anchorId);});
+    var spouseObj=null;
+    if(spouseRels.length>0){
+      var spId=spouseRels[0].f===anchorId?spouseRels[0].t:spouseRels[0].f;
+      spouseObj=S.ps.find(function(p){return p.id===spId;});
+    }
+
+    if(existingParents.length>0){
+      // SECOND parent being added
+      var ep=existingParents[0];
+      var newX=(ep.x||0)+CW+GAP_H;
+      var newY=ep.y||parentY;
+      // If spouse exists and our position would overlap their column
+      if(spouseObj){
+        var spouseX=spouseObj.x||0;
+        var spouseRight=spouseX+CW;
+        // Need 50px gap between our parent group and spouse
+        var needed=newX+CW+50;
+        if(needed>spouseX){
+          var shift=needed-spouseX;
+          // Move spouse + their parents + everyone to the right
+          S.ps.filter(function(p){
+            return p.id!==anchorId&&p.id!==ep.id&&(p.x||0)>=spouseX-10;
+          }).forEach(function(p){p.x=(p.x||0)+shift;});
+        }
+      }
+      return{x:newX,y:newY};
+    }
+    // FIRST parent being added - centered above anchor
+    // If spouse exists, place parent ABOVE the anchor (not above the couple)
+    var firstX=ax;
+    return{x:firstX,y:parentY};
   }
 
   if(relType==='child'||relType==='grandchild'){
@@ -1018,54 +1107,85 @@ function clearOPSel(){S.opSelId=null;$('op-sel').style.display='none';}
 
 function saveOP(){
   var otherParentId=null;
+
   if(S.opSelId){
+    // Use existing person - just position next to anchor
     otherParentId=S.opSelId;
-    var existingP=S.ps.find(function(p){return p.id===S.opSelId;});
-    var anchorP=S.ps.find(function(p){return p.id===S.opAnchorId;});
-    if(existingP&&anchorP){existingP.y=anchorP.y;if(Math.abs((existingP.x||0)-(anchorP.x||0))<10)existingP.x=(anchorP.x||0)+175;}
-  }else{
+    var existP=S.ps.find(function(p){return p.id===S.opSelId;});
+    var anchP=S.ps.find(function(p){return p.id===S.opAnchorId;});
+    if(existP&&anchP){
+      // Place at same Y as anchor parent, to the right
+      existP.y=anchP.y||0;
+      if(Math.abs((existP.x||0)-(anchP.x||0))<CW){
+        existP.x=(anchP.x||0)+CW+GAP_H;
+      }
+    }
+  } else {
     var first=$('op-fn').value.trim(),last=$('op-fl').value.trim();
     if(!first||!last){toast('Escribe nombre y apellido','w');$('op-fn').focus();return;}
-    var parent1=S.ps.find(function(p){return p.id===S.opAnchorId;});
-    var child=S.ps.find(function(p){return p.id===S.opChildId;});
+
+    // Get anchor parent position
+    var anchorPar=S.ps.find(function(p){return p.id===S.opAnchorId;});
     var posX,posY;
-    if(parent1){posY=parent1.y||0;posX=(parent1.x||0)+175;if(child){child.y=posY+GAP_V;child.x=((parent1.x||0)+posX)/2;}}
-    else if(child){posX=child.x||0;posY=(child.y||0)-GAP_V;}
-    else{posX=300;posY=200;}
-    var np={id:'p'+Date.now(),x:posX,y:posY,first:first,last:last,gender:$('op-gen').value,
-      nick:$('op-nick')?$('op-nick').value.trim():'',heb:$('op-heb')?$('op-heb').value.trim():'',
-      bdate:$('op-bdate')?$('op-bdate').value:'',bplace:$('op-bplace')?$('op-bplace').value.trim():'',
+
+    if(anchorPar){
+      // Place new parent at SAME Y as anchor, to the right
+      posY=anchorPar.y||0;
+      posX=(anchorPar.x||0)+CW+GAP_H;
+    } else {
+      posX=300; posY=200;
+    }
+
+    var np={id:'p'+Date.now(),x:posX,y:posY,
+      first:first,last:last,gender:$('op-gen').value,
+      nick:$('op-nick')?$('op-nick').value.trim():'',
+      heb:$('op-heb')?$('op-heb').value.trim():'',
+      bdate:$('op-bdate')?$('op-bdate').value:'',
+      bplace:$('op-bplace')?$('op-bplace').value.trim():'',
       notes:$('op-notes')?$('op-notes').value.trim():'',
       deceased:$('op-deceased')?$('op-deceased').checked:false,
-      ddate:$('op-ddate')?$('op-ddate').value:'',dplace:$('op-dplace')?$('op-dplace').value.trim():'',photo:null};
-    S.ps.push(np);otherParentId=np.id;
+      ddate:$('op-ddate')?$('op-ddate').value:'',
+      dplace:$('op-dplace')?$('op-dplace').value.trim():'',
+      photo:null};
+    S.ps.push(np);
+    otherParentId=np.id;
   }
+
+  // Determine child and parent1
   var childId,parent1Id;
-  if(S.opRelType==='child'){childId=S.opChildId;parent1Id=S.opAnchorId;}
-  else{childId=S.opAnchorId;parent1Id=S.opChildId;}
+  if(S.opRelType==='child'){
+    childId=S.opChildId;
+    parent1Id=S.opAnchorId;
+  }else{
+    childId=S.opAnchorId;
+    parent1Id=S.opChildId;
+  }
+
+  // Add parent relations
   addRel(parent1Id,childId,'parent');
   addRel(otherParentId,childId,'parent');
+
+  // DO NOT move any existing cards - only position the new parent correctly
   var par1obj=S.ps.find(function(p){return p.id===parent1Id;});
   var par2obj=S.ps.find(function(p){return p.id===otherParentId;});
-  var childobj=S.ps.find(function(p){return p.id===childId;});
-  if(par1obj&&par2obj&&childobj){
-    var cy=childobj.y||0;
-    var py=cy-GAP_V;if(py<50)py=50;
-    par1obj.y=py;par2obj.y=py;
-    var p1x=par1obj.x||200;par2obj.x=p1x+CW+GAP_H;par1obj.x=p1x;
-    var allCh=S.rs.filter(function(r){return r.type==='parent'&&(r.f===parent1Id||r.f===otherParentId);})
-      .map(function(r){return S.ps.find(function(p){return p.id===r.t;});}).filter(Boolean);
-    var seen={};allCh=allCh.filter(function(c){if(seen[c.id])return false;seen[c.id]=true;return true;});
-    var midX=(pcx(par1obj)+pcx(par2obj))/2;
-    var totalW=allCh.length*CW+(allCh.length-1)*20;
-    var startX=midX-totalW/2;
-    allCh.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-    allCh.forEach(function(c,i){c.x=startX+i*(CW+30);c.y=py+GAP_V;});
+
+  if(par1obj&&par2obj){
+    // Ensure par2 is at same Y as par1 and to the right
+    par2obj.y=par1obj.y||0;
+    // Only adjust X if they overlap
+    if(Math.abs((par2obj.x||0)-(par1obj.x||0))<CW){
+      par2obj.x=(par1obj.x||0)+CW+GAP_H;
+    }
   }
-  $('opmo').style.display='none';document.body.style.overflow='';
-  renderAll();autoSave();
-  setTimeout(function(){var p=S.ps.find(function(x){return x.id===parent1Id;});if(p)scrollToId(parent1Id);},400);
-  toast('Familia conectada \u2713','ok');
+
+  $('opmo').style.display='none';
+  document.body.style.overflow='';
+  renderAll();
+  autoSave();
+  setTimeout(function(){
+    if(par1obj) scrollToId(parent1Id);
+  },400);
+  toast('Familia conectada ✓','ok');
 }
 
 function skipOtherParent(){
@@ -1507,7 +1627,7 @@ var LANGS={
     rel_spouse:'Cónyuge',rel_exspouse:'Ex-cónyuge',rel_unknown:'Familiar',
     no_relation:'Sin parentesco directo',relationship_with:'Parentesco con',
     match_title:'¡Coincidencia encontrada!',match_found:'coincidencia posible',
-    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles'},
+    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente'},
   en:{dir:'ltr',name:'English',
     rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
     rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
@@ -1517,7 +1637,7 @@ var LANGS={
     rel_spouse:'Spouse',rel_exspouse:'Ex-spouse',rel_unknown:'Relative',
     no_relation:'No direct relationship found',relationship_with:'Relationship with',
     match_title:'Match found!',match_found:'possible match',
-    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees'},
+    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree'},
   he:{dir:'rtl',name:'עברית',
     rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
     rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
@@ -1527,7 +1647,7 @@ var LANGS={
     rel_spouse:'בן/בת זוג',rel_exspouse:'גרוש/ה',rel_unknown:'קרוב משפחה',
     no_relation:'לא נמצאה קרבה',relationship_with:'קרבה עם',
     match_title:'נמצאה התאמה!',match_found:'התאמה אפשרית',
-    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים'}
+    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית'}
 };
 function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
 function setLang(lang){
@@ -1592,7 +1712,9 @@ function updateToolbarLang(){
     'tb-stats': L.tip_stats||'Estadísticas',
     'tb-help': L.tip_help||'Ayuda',
     'tb-plans': L.tip_plans||'Planes y precios',
-    'tb-match': L.tip_match||'Buscar coincidencias'
+    'tb-match': L.tip_match||'Buscar coincidencias',
+    'tb-about': L.tip_about||'Acerca de E-TREE',
+    'tb-reorg': L.tip_reorg||'Reorganizar árbol'
   };
   Object.keys(tips).forEach(function(id){
     var el=$(id);if(el)el.title=tips[id];
@@ -1687,6 +1809,146 @@ function openSearch(){
   }
 }
 
+function openAbout(){
+  var L=LANGS[LANG];
+  // Update about modal text based on language
+  var titles={
+    es:'Acerca de E-TREE', en:'About E-TREE', he:'אודות E-TREE'
+  };
+  var descs={
+    es:'Aplicación de árbol genealógico personal. Simple, privada y multilingüe. Preserva tu historia familiar para las próximas generaciones.',
+    en:'Personal family tree application. Simple, private and multilingual. Preserve your family history for future generations.',
+    he:'אפליקציית עץ משפחה אישית. פשוטה, פרטית ורב-לשונית. שמור את ההיסטוריה המשפחתית שלך לדורות הבאים.'
+  };
+  var creatorLabels={es:'Creado por',en:'Created by',he:'נוצר על ידי'};
+  var techLabels={es:'Tecnología',en:'Technology',he:'טכנולוגיה'};
+  var claudeTxt={
+    es:'Desarrollado con asistencia de Claude',
+    en:'Developed with Claude assistance',
+    he:'פותח בסיוע Claude'
+  };
+  var rights={
+    es:'© 2025 Ilan Bar Lev. Todos los derechos reservados.',
+    en:'© 2025 Ilan Bar Lev. All rights reserved.',
+    he:'© 2025 Ilan Bar Lev. כל הזכויות שמורות.'
+  };
+  var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
+
+  var el=$('about-title');if(el)el.textContent=titles[LANG]||titles.es;
+  el=$('about-desc');if(el)el.textContent=descs[LANG]||descs.es;
+  el=$('about-creator-label');if(el)el.textContent=creatorLabels[LANG]||creatorLabels.es;
+  el=$('about-tech-label');if(el)el.textContent=techLabels[LANG]||techLabels.es;
+  el=$('about-claude-txt');if(el)el.textContent=claudeTxt[LANG]||claudeTxt.es;
+  el=$('about-rights');if(el)el.textContent=rights[LANG]||rights.es;
+  el=$('about-close-btn');if(el)el.textContent=closeBtns[LANG]||closeBtns.es;
+  el=$('about-desc-label');if(el)el.textContent=LANG==='he'?'תיאור':LANG==='en'?'Description':'Descripción';
+
+  openModal('aboutmo');
+}
+
+function autoReorganize(){
+  if(!S.ps.length){toast('No hay personas en el árbol','w');return;}
+  if(!confirm('Esto reorganizará todas las fichas según las relaciones familiares. ¿Continuar?'))return;
+
+  // Step 1: Calculate generation level for each person
+  // Generation 0 = first person added (ego)
+  // Negative = ancestors, Positive = descendants
+  var gen={};
+  var visited={};
+  var queue=[{id:S.ps[0].id, level:0}];
+  gen[S.ps[0].id]=0;
+  visited[S.ps[0].id]=true;
+
+  while(queue.length){
+    var cur=queue.shift();
+    S.rs.forEach(function(r){
+      if(r.type==='parent'){
+        // f is parent of t
+        if(r.t===cur.id && !visited[r.f]){
+          gen[r.f]=cur.level-1;
+          visited[r.f]=true;
+          queue.push({id:r.f, level:cur.level-1});
+        }
+        if(r.f===cur.id && !visited[r.t]){
+          gen[r.t]=cur.level+1;
+          visited[r.t]=true;
+          queue.push({id:r.t, level:cur.level+1});
+        }
+      } else if(r.type==='spouse'||r.type==='spouse-div'){
+        var other=r.f===cur.id?r.t:r.f;
+        if((r.f===cur.id||r.t===cur.id) && !visited[other]){
+          gen[other]=cur.level;
+          visited[other]=true;
+          queue.push({id:other, level:cur.level});
+        }
+      } else if(r.type==='sibling'){
+        var sib=r.f===cur.id?r.t:r.f;
+        if((r.f===cur.id||r.t===cur.id) && !visited[sib]){
+          gen[sib]=cur.level;
+          visited[sib]=true;
+          queue.push({id:sib, level:cur.level});
+        }
+      }
+    });
+  }
+
+  // Assign any unconnected people to gen 0
+  S.ps.forEach(function(p){if(gen[p.id]===undefined)gen[p.id]=0;});
+
+  // Step 2: Group by generation
+  var byGen={};
+  S.ps.forEach(function(p){
+    var g=gen[p.id];
+    if(!byGen[g])byGen[g]=[];
+    byGen[g].push(p);
+  });
+
+  // Step 3: Place each generation horizontally
+  var levels=Object.keys(byGen).map(function(k){return parseInt(k);}).sort(function(a,b){return a-b;});
+  var baseY=2000;
+  var baseX=2000;
+
+  levels.forEach(function(level){
+    var people=byGen[level];
+    // Sort by birth year
+    people.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
+    // Group couples together
+    var ordered=[];
+    var placed={};
+    people.forEach(function(p){
+      if(placed[p.id])return;
+      ordered.push(p);
+      placed[p.id]=true;
+      // Find spouse
+      var sp=S.rs.find(function(r){
+        return(r.type==='spouse'||r.type==='spouse-div')&&(r.f===p.id||r.t===p.id);
+      });
+      if(sp){
+        var spId=sp.f===p.id?sp.t:sp.f;
+        var spP=people.find(function(pp){return pp.id===spId;});
+        if(spP && !placed[spId]){
+          ordered.push(spP);
+          placed[spId]=true;
+        }
+      }
+    });
+
+    var levelY=baseY+(level*GAP_V);
+    var totalCount=ordered.length;
+    var totalW=totalCount*CW+(totalCount-1)*30;
+    var startX=baseX-totalW/2;
+    ordered.forEach(function(p,i){
+      p.x=startX+i*(CW+30);
+      p.y=levelY;
+    });
+  });
+
+  renderAll();
+  autoSave();
+  toast('Árbol reorganizado ✓','ok');
+  setTimeout(function(){centerView();},300);
+}
+
 function checkMatches(){
   if(!fbDb||!S.user||S.user.guest){toast('Inicia sesión para buscar coincidencias','w');return;}
   var myKeys={};
@@ -1715,6 +1977,133 @@ function checkMatches(){
     }
   }).catch(function(){setSI('saved');});
 }
+
+// MULTI-SELECTION
+var SEL = {active:false, startX:0, startY:0, ids:[]};
+
+function initSelection(){
+  var tw=$('tree-wrap');
+  var canvas=$('tree-canvas');
+  var rect=$('sel-rect');
+  if(!tw||!canvas||!rect)return;
+
+  tw.addEventListener('mousedown',function(e){
+    // Only start if clicking empty area (not on a card)
+    if(e.target.closest('.card'))return;
+    if(e.button!==0)return; // left click only
+    if(e.target.id!=='tree-wrap'&&e.target.id!=='tree-canvas'&&e.target.tagName!=='svg'&&e.target.tagName!=='SVG')return;
+
+    var canvasRect=canvas.getBoundingClientRect();
+    SEL.startX=(e.clientX-canvasRect.left)/S.zoom;
+    SEL.startY=(e.clientY-canvasRect.top)/S.zoom;
+    SEL.active=true;
+    SEL.ids=[];
+    rect.style.display='block';
+    rect.style.left=SEL.startX+'px';
+    rect.style.top=SEL.startY+'px';
+    rect.style.width='0px';
+    rect.style.height='0px';
+    // Clear previous selection
+    document.querySelectorAll('.card.selected').forEach(function(c){c.classList.remove('selected');});
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove',function(e){
+    if(!SEL.active)return;
+    var canvasRect=canvas.getBoundingClientRect();
+    var x=(e.clientX-canvasRect.left)/S.zoom;
+    var y=(e.clientY-canvasRect.top)/S.zoom;
+    var left=Math.min(SEL.startX,x);
+    var top=Math.min(SEL.startY,y);
+    var w=Math.abs(x-SEL.startX);
+    var h=Math.abs(y-SEL.startY);
+    rect.style.left=left+'px';
+    rect.style.top=top+'px';
+    rect.style.width=w+'px';
+    rect.style.height=h+'px';
+  });
+
+  document.addEventListener('mouseup',function(e){
+    if(!SEL.active)return;
+    SEL.active=false;
+    var canvasRect=canvas.getBoundingClientRect();
+    var endX=(e.clientX-canvasRect.left)/S.zoom;
+    var endY=(e.clientY-canvasRect.top)/S.zoom;
+    var left=Math.min(SEL.startX,endX);
+    var top=Math.min(SEL.startY,endY);
+    var right=Math.max(SEL.startX,endX);
+    var bottom=Math.max(SEL.startY,endY);
+
+    // Find cards inside rectangle
+    SEL.ids=[];
+    S.ps.forEach(function(p){
+      var px=p.x||0,py=p.y||0;
+      if(px+CW>=left && px<=right && py+CBH>=top && py<=bottom){
+        SEL.ids.push(p.id);
+        var card=$('c_'+p.id);
+        if(card)card.classList.add('selected');
+      }
+    });
+
+    rect.style.display='none';
+    if(SEL.ids.length>1){
+      toast(SEL.ids.length+' fichas seleccionadas — arrastra para mover','ok');
+      attachMultiDrag();
+    }
+  });
+}
+
+function attachMultiDrag(){
+  SEL.ids.forEach(function(id){
+    var card=$('c_'+id);
+    if(!card)return;
+    // Override click to handle multi-move
+    var origMd=card.onmousedown;
+    card.addEventListener('mousedown',multiDragStart);
+    card.addEventListener('touchstart',multiDragStart,{passive:false});
+  });
+}
+
+var MD={active:false,startX:0,startY:0,positions:{}};
+function multiDragStart(e){
+  if(!SEL.ids.length)return;
+  if(e.target.closest('.card-actions'))return;
+  var card=e.currentTarget;
+  if(SEL.ids.indexOf(card.id.replace('c_',''))<0)return;
+
+  var x=e.touches?e.touches[0].clientX:e.clientX;
+  var y=e.touches?e.touches[0].clientY:e.clientY;
+  MD.active=true;
+  MD.startX=x;
+  MD.startY=y;
+  MD.positions={};
+  SEL.ids.forEach(function(id){
+    var p=S.ps.find(function(pp){return pp.id===id;});
+    if(p)MD.positions[id]={x:p.x||0,y:p.y||0};
+  });
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+document.addEventListener('mousemove',function(e){multiDragMove(e.clientX,e.clientY);});
+document.addEventListener('touchmove',function(e){if(e.touches[0])multiDragMove(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+function multiDragMove(x,y){
+  if(!MD.active)return;
+  var dx=(x-MD.startX)/S.zoom;
+  var dy=(y-MD.startY)/S.zoom;
+  SEL.ids.forEach(function(id){
+    var p=S.ps.find(function(pp){return pp.id===id;});
+    if(p&&MD.positions[id]){
+      p.x=MD.positions[id].x+dx;
+      p.y=MD.positions[id].y+dy;
+      var card=$('c_'+id);
+      if(card){card.style.left=p.x+'px';card.style.top=p.y+'px';}
+    }
+  });
+  drawLines($('tree-svg'));
+}
+document.addEventListener('mouseup',function(){if(MD.active){MD.active=false;autoSave();}});
+document.addEventListener('touchend',function(){if(MD.active){MD.active=false;autoSave();}});
 
 // INIT
 window.addEventListener('load',function(){
