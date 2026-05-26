@@ -156,7 +156,7 @@ html{height:100%}
       <span id="stx">Listo</span>
     </div>
   </div>
-  <div id="tree-wrap">
+  <div id="tree-wrap" tabindex="0">
     <div id="tree-canvas"><svg id="tree-svg"></svg><div id="sel-rect"></div></div>
     <div id="empty">
       <div style="font-size:44px;margin-bottom:12px">&#128106;</div>
@@ -532,7 +532,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.0 &middot; 2025</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.0 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -870,11 +870,19 @@ function smartPos(relType,anchorId){
   }
 
   if(relType==='spouse'||relType==='spouse-div'){
+    // GENDER CONVENTION: Male on LEFT, Female on RIGHT
+    // We're adding new spouse. The anchor stays in place.
+    // The new spouse's gender determines which side they go
+    // But we don't know the new person's gender yet - it'll be set in form
+    // The visual swap happens in renderAll based on gender comparison
+
     var siblingsAtY=S.ps.filter(function(p){return p.id!==anchorId&&Math.abs((p.y||0)-ay)<80;}).sort(function(a,b){return(a.x||0)-(b.x||0);});
     var leftSibs=siblingsAtY.filter(function(p){return(p.x||0)<ax;});
     var rightSibs=siblingsAtY.filter(function(p){return(p.x||0)>ax;});
-    var SPOUSE_GAP=20;   // 20px between spouses
-    var SIB_GAP=50;      // 50px between couple and siblings
+    var SPOUSE_GAP=20;
+    var SIB_GAP=50;
+
+    // Default: place spouse to the right
     var spouseX=ax+CW+SPOUSE_GAP;
     if(rightSibs.length>0){
       var needed=spouseX+CW+SIB_GAP;
@@ -1045,7 +1053,26 @@ function savePer(){
       else{addRel(S.aid,np.id,S.selRel);}
       closeModal('pmo');closeDet();renderAll();autoSave();
       if(S.selRel==='sibling'){setTimeout(function(){showSibParents(np.id,S.aid);},400);}
-      if(S.selRel==='spouse'||S.selRel==='spouse-div'){setTimeout(function(){askSpouseChildren(np.id,S.aid);},400);}
+      if(S.selRel==='spouse'||S.selRel==='spouse-div'){
+        // GENDER CONVENTION: ensure Male is on LEFT
+        var anchor=S.ps.find(function(p){return p.id===S.aid;});
+        if(anchor&&np.gender&&anchor.gender&&np.gender!==anchor.gender){
+          // Different genders - check if we need to swap positions
+          var maleId=np.gender==='M'?np.id:(anchor.gender==='M'?anchor.id:null);
+          var femaleId=np.gender==='F'?np.id:(anchor.gender==='F'?anchor.id:null);
+          if(maleId&&femaleId){
+            var male=S.ps.find(function(p){return p.id===maleId;});
+            var female=S.ps.find(function(p){return p.id===femaleId;});
+            if(male&&female&&(male.x||0)>(female.x||0)){
+              // Male is on right - swap positions
+              var tx=male.x;
+              male.x=female.x;
+              female.x=tx;
+            }
+          }
+        }
+        setTimeout(function(){askSpouseChildren(np.id,S.aid);},400);
+      }
       if(S.selRel==='child'||S.selRel==='parent'){
         var otherParentExists=false;
         if(S.selRel==='parent'){
@@ -1170,11 +1197,21 @@ function saveOP(){
   var par2obj=S.ps.find(function(p){return p.id===otherParentId;});
 
   if(par1obj&&par2obj){
-    // Ensure par2 is at same Y as par1 and to the right
+    // Ensure par2 is at same Y as par1
     par2obj.y=par1obj.y||0;
     // Only adjust X if they overlap
     if(Math.abs((par2obj.x||0)-(par1obj.x||0))<CW){
       par2obj.x=(par1obj.x||0)+CW+GAP_H;
+    }
+    // GENDER CONVENTION: Male on LEFT, Female on RIGHT
+    if(par1obj.gender&&par2obj.gender&&par1obj.gender!==par2obj.gender){
+      var male2=par1obj.gender==='M'?par1obj:par2obj;
+      var female2=par1obj.gender==='F'?par1obj:par2obj;
+      if((male2.x||0)>(female2.x||0)){
+        var tmp=male2.x;
+        male2.x=female2.x;
+        female2.x=tmp;
+      }
     }
   }
 
@@ -1248,10 +1285,49 @@ function positionSibling(sibId,refId,parents){
   var ref=S.ps.find(function(p){return p.id===refId;});
   if(!sib||!ref)return;
   sib.y=ref.y||0;
-  var siblingsAtY=S.ps.filter(function(p){return p.id!==sibId&&Math.abs((p.y||0)-(ref.y||0))<80;});
-  var maxX=Math.max.apply(null,siblingsAtY.map(function(p){return(p.x||0)+CW;}));
-  sib.x=maxX+30;
-  if(parents.length>0)recenterChildren(parents.map(function(p){return p.id;}));
+
+  // Determine sibling birth year vs reference
+  var sibYear=getBirthYear(sib);
+  var refYear=getBirthYear(ref);
+
+  // Check if ref has spouse - need to know which side to place sibling
+  var refSpouse=null;
+  S.rs.forEach(function(r){
+    if((r.type==='spouse'||r.type==='spouse-div')){
+      if(r.f===refId) refSpouse=S.ps.find(function(p){return p.id===r.t;});
+      else if(r.t===refId) refSpouse=S.ps.find(function(p){return p.id===r.f;});
+    }
+  });
+
+  if(sibYear<refYear){
+    // Older sibling - place to the LEFT of ref
+    sib.x=(ref.x||0)-CW-30;
+    // If sibling overlaps with anyone to the left, push them further left
+    var leftCards=S.ps.filter(function(p){
+      return p.id!==sibId&&p.id!==refId&&Math.abs((p.y||0)-(ref.y||0))<80&&(p.x||0)<=(sib.x);
+    });
+    leftCards.forEach(function(p){
+      if(Math.abs((p.x||0)-(sib.x))<CW+30){
+        p.x=sib.x-CW-30;
+      }
+    });
+  } else {
+    // Younger sibling - place to the RIGHT of spouse if exists, otherwise right of ref
+    var anchorRight=refSpouse?refSpouse:ref;
+    var anchorX=anchorRight.x||0;
+    // Find siblings already to the right
+    var rightSibs=S.ps.filter(function(p){
+      return p.id!==sibId&&p.id!==refId&&p.id!==(refSpouse?refSpouse.id:'')&&
+        Math.abs((p.y||0)-(ref.y||0))<80&&(p.x||0)>anchorX;
+    });
+    if(rightSibs.length>0){
+      var maxX=Math.max.apply(null,rightSibs.map(function(p){return(p.x||0)+CW;}));
+      sib.x=maxX+30;
+    } else {
+      sib.x=anchorX+CW+30;
+    }
+  }
+  // DO NOT call recenterChildren - it would move spouse too
 }
 
 function recenterChildren(parentIds){
@@ -1532,7 +1608,15 @@ function fitView(){
   S.zoom=Math.min(1,Math.round(Math.min(tw.clientWidth/(mx.x-mn.x+80),tw.clientHeight/(mx.y-mn.y+80))*100)/100);
   apZ();setTimeout(function(){centerView();},50);
 }
-function apZ(){$('tree-canvas').style.transform='scale('+S.zoom+')';$('tree-canvas').style.transformOrigin='top left';$('zpct').textContent=Math.round(S.zoom*100)+'%';}
+function apZ(){
+  var canvas=$('tree-canvas');
+  canvas.style.transform='scale('+S.zoom+')';
+  canvas.style.transformOrigin='top left';
+  $('zpct').textContent=Math.round(S.zoom*100)+'%';
+  // Force focus to tree-wrap so keyboard works
+  var tw=$('tree-wrap');
+  if(tw)tw.focus();
+}
 
 // SHARE
 function openShare(){
@@ -1828,10 +1912,16 @@ function openAbout(){
     he:'פותח בסיוע Claude'
   };
   var rights={
-    es:'© 2025 Ilan Bar Lev. Todos los derechos reservados.',
-    en:'© 2025 Ilan Bar Lev. All rights reserved.',
-    he:'© 2025 Ilan Bar Lev. כל הזכויות שמורות.'
+    es:'© 2026 Ilan Bar Lev. Todos los derechos reservados.',
+    en:'© 2026 Ilan Bar Lev. All rights reserved.',
+    he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
+  var startDates={
+    es:'Versión 1.0 · Iniciado el 30 de abril de 2026',
+    en:'Version 1.0 · Started April 30, 2026',
+    he:'גרסה 1.0 · החל ב-30 באפריל 2026'
+  };
+  var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
 
   var el=$('about-title');if(el)el.textContent=titles[LANG]||titles.es;
@@ -1850,9 +1940,7 @@ function autoReorganize(){
   if(!S.ps.length){toast('No hay personas en el árbol','w');return;}
   if(!confirm('Esto reorganizará todas las fichas según las relaciones familiares. ¿Continuar?'))return;
 
-  // Step 1: Calculate generation level for each person
-  // Generation 0 = first person added (ego)
-  // Negative = ancestors, Positive = descendants
+  // Step 1: BFS to assign generation levels from first person
   var gen={};
   var visited={};
   var queue=[{id:S.ps[0].id, level:0}];
@@ -1863,36 +1951,29 @@ function autoReorganize(){
     var cur=queue.shift();
     S.rs.forEach(function(r){
       if(r.type==='parent'){
-        // f is parent of t
         if(r.t===cur.id && !visited[r.f]){
-          gen[r.f]=cur.level-1;
-          visited[r.f]=true;
+          gen[r.f]=cur.level-1; visited[r.f]=true;
           queue.push({id:r.f, level:cur.level-1});
         }
         if(r.f===cur.id && !visited[r.t]){
-          gen[r.t]=cur.level+1;
-          visited[r.t]=true;
+          gen[r.t]=cur.level+1; visited[r.t]=true;
           queue.push({id:r.t, level:cur.level+1});
         }
       } else if(r.type==='spouse'||r.type==='spouse-div'){
         var other=r.f===cur.id?r.t:r.f;
         if((r.f===cur.id||r.t===cur.id) && !visited[other]){
-          gen[other]=cur.level;
-          visited[other]=true;
+          gen[other]=cur.level; visited[other]=true;
           queue.push({id:other, level:cur.level});
         }
       } else if(r.type==='sibling'){
         var sib=r.f===cur.id?r.t:r.f;
         if((r.f===cur.id||r.t===cur.id) && !visited[sib]){
-          gen[sib]=cur.level;
-          visited[sib]=true;
+          gen[sib]=cur.level; visited[sib]=true;
           queue.push({id:sib, level:cur.level});
         }
       }
     });
   }
-
-  // Assign any unconnected people to gen 0
   S.ps.forEach(function(p){if(gen[p.id]===undefined)gen[p.id]=0;});
 
   // Step 2: Group by generation
@@ -1903,49 +1984,104 @@ function autoReorganize(){
     byGen[g].push(p);
   });
 
-  // Step 3: Place each generation horizontally
+  // Step 3: Build family groups - keep siblings + their spouses adjacent
+  // For each level, group people whose parents are same/related
   var levels=Object.keys(byGen).map(function(k){return parseInt(k);}).sort(function(a,b){return a-b;});
   var baseY=2000;
   var baseX=2000;
 
   levels.forEach(function(level){
     var people=byGen[level];
-    // Sort by birth year
+    // Sort by birth year for chronological order
     people.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-    // Group couples together
+
+    // Build ordered list - keep family clusters together
+    // Each cluster: siblings followed by their spouses (alternating sibling-spouse-sibling-spouse)
     var ordered=[];
     var placed={};
+
     people.forEach(function(p){
       if(placed[p.id])return;
-      ordered.push(p);
-      placed[p.id]=true;
-      // Find spouse
-      var sp=S.rs.find(function(r){
-        return(r.type==='spouse'||r.type==='spouse-div')&&(r.f===p.id||r.t===p.id);
-      });
-      if(sp){
-        var spId=sp.f===p.id?sp.t:sp.f;
-        var spP=people.find(function(pp){return pp.id===spId;});
-        if(spP && !placed[spId]){
-          ordered.push(spP);
-          placed[spId]=true;
-        }
+
+      // Check if p has parents in tree - find siblings (people with same parents)
+      var pParents=S.rs.filter(function(r){return r.type==="parent"&&r.t===p.id;}).map(function(r){return r.f;});
+      var siblings=[];
+      if(pParents.length>0){
+        people.forEach(function(pp){
+          if(pp.id===p.id||placed[pp.id])return;
+          var ppParents=S.rs.filter(function(r){return r.type==="parent"&&r.t===pp.id;}).map(function(r){return r.f;});
+          // Same parent set means siblings
+          if(ppParents.length>0&&ppParents.some(function(par){return pParents.indexOf(par)>=0;})){
+            siblings.push(pp);
+          }
+        });
       }
+
+      // Order: p + all siblings, sorted by birth year, each followed by spouse
+      var cluster=[p].concat(siblings).sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
+      cluster.forEach(function(c){
+        if(placed[c.id])return;
+        ordered.push(c);
+        placed[c.id]=true;
+        // Add spouse RIGHT after this person
+        var spRel=S.rs.find(function(r){
+          return(r.type==="spouse"||r.type==="spouse-div")&&(r.f===c.id||r.t===c.id);
+        });
+        if(spRel){
+          var spId=spRel.f===c.id?spRel.t:spRel.f;
+          var spP=people.find(function(pp){return pp.id===spId;});
+          if(spP&&!placed[spId]){
+            // GENDER CONVENTION: Male first, Female second
+            if(c.gender==='F'&&spP.gender==='M'){
+              // Spouse is male - put male first, then current (female)
+              var idx=ordered.length-1;
+              ordered[idx]=spP; // replace current with spouse
+              ordered.push(c);  // append current after spouse
+            } else {
+              ordered.push(spP);
+            }
+            placed[spId]=true;
+          }
+        }
+      });
     });
 
+    // Place ordered people at this level
     var levelY=baseY+(level*GAP_V);
     var totalCount=ordered.length;
-    var totalW=totalCount*CW+(totalCount-1)*30;
+    // Couples get 20px between them, others get 30px
+    var totalW=0;
+    for(var i=0;i<ordered.length;i++){
+      totalW+=CW;
+      if(i<ordered.length-1){
+        // Is current and next a couple?
+        var cur=ordered[i],nxt=ordered[i+1];
+        var coupled=S.rs.find(function(r){
+          return(r.type==="spouse"||r.type==="spouse-div")&&
+            ((r.f===cur.id&&r.t===nxt.id)||(r.f===nxt.id&&r.t===cur.id));
+        });
+        totalW+=coupled?20:30;
+      }
+    }
     var startX=baseX-totalW/2;
+    var curX=startX;
     ordered.forEach(function(p,i){
-      p.x=startX+i*(CW+30);
+      p.x=curX;
       p.y=levelY;
+      if(i<ordered.length-1){
+        var nxt=ordered[i+1];
+        var coupled=S.rs.find(function(r){
+          return(r.type==="spouse"||r.type==="spouse-div")&&
+            ((r.f===p.id&&r.t===nxt.id)||(r.f===nxt.id&&r.t===p.id));
+        });
+        curX+=CW+(coupled?20:30);
+      }
     });
   });
 
   renderAll();
   autoSave();
-  toast('Árbol reorganizado ✓','ok');
+  toast("Árbol reorganizado ✓","ok");
   setTimeout(function(){centerView();},300);
 }
 
@@ -1982,6 +2118,20 @@ function checkMatches(){
 var SEL = {active:false, startX:0, startY:0, ids:[]};
 
 function initSelection(){
+  // Keyboard scrolling for tree-wrap
+  var tw_keys=$('tree-wrap');
+  if(tw_keys){
+    tw_keys.addEventListener('keydown',function(e){
+      var step=50;
+      if(e.key==='ArrowLeft'){tw_keys.scrollLeft-=step;e.preventDefault();}
+      else if(e.key==='ArrowRight'){tw_keys.scrollLeft+=step;e.preventDefault();}
+      else if(e.key==='ArrowUp'){tw_keys.scrollTop-=step;e.preventDefault();}
+      else if(e.key==='ArrowDown'){tw_keys.scrollTop+=step;e.preventDefault();}
+    });
+    // Focus on tree-wrap when clicked
+    tw_keys.addEventListener('click',function(){tw_keys.focus();});
+  }
+
   var tw=$('tree-wrap');
   var canvas=$('tree-canvas');
   var rect=$('sel-rect');
