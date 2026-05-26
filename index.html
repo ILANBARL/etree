@@ -1513,11 +1513,11 @@ function tBar(lines,dx,dy,kids,col){
       // Horizontal from exitX at dy level to dx (parent midpoint)
       lines.push('<line x1="'+exitX+'" y1="'+dy+'" x2="'+dx+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     } else {
-      // No spouse - regular inverted T
-      var midY=dy+(cy-dy)/2;
-      lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+midY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      lines.push('<line x1="'+dx+'" y1="'+midY+'" x2="'+cx+'" y2="'+midY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      lines.push('<line x1="'+cx+'" y1="'+midY+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      // No spouse - original simple line (down then horizontal)
+      lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      if(Math.abs(dx-cx)>4){
+        lines.push('<line x1="'+dx+'" y1="'+cy+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      }
     }
   }else{
     var xs=kids.map(function(c){return pcx(c);});
