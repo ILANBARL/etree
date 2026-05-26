@@ -1497,22 +1497,21 @@ function tBar(lines,dx,dy,kids,col){
       // Centered - straight line down
       lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     } else if(childSpouse){
-      // Child has spouse - line exits from FAR side (away from spouse)
+      // Child has spouse - line exits from FAR side, goes UP, then HORIZONTAL to parent line
       var spouseX=childSpouse.x||0;
       var childX=child.x||0;
       var exitX;
       if(spouseX>childX){
-        // Spouse is to the RIGHT - exit from LEFT side of child card
-        exitX=childX+20; // close to left edge
+        // Spouse to the RIGHT - exit from LEFT edge
+        exitX=childX;
       } else {
-        // Spouse is to the LEFT - exit from RIGHT side of child card
-        exitX=childX+CW-20; // close to right edge
+        // Spouse to the LEFT - exit from RIGHT edge
+        exitX=childX+CW;
       }
-      // Draw: from exitX,cy → up to curveY → horizontal to dx → up to parent line dy
-      var curveY=cy-30;
-      lines.push('<line x1="'+exitX+'" y1="'+cy+'" x2="'+exitX+'" y2="'+curveY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      lines.push('<line x1="'+exitX+'" y1="'+curveY+'" x2="'+dx+'" y2="'+curveY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      lines.push('<line x1="'+dx+'" y1="'+curveY+'" x2="'+dx+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      // Vertical from child top (at edge) UP to parent line level dy
+      lines.push('<line x1="'+exitX+'" y1="'+cy+'" x2="'+exitX+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      // Horizontal from exitX at dy level to dx (parent midpoint)
+      lines.push('<line x1="'+exitX+'" y1="'+dy+'" x2="'+dx+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     } else {
       // No spouse - regular inverted T
       var midY=dy+(cy-dy)/2;
