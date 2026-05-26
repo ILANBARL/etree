@@ -1497,20 +1497,19 @@ function tBar(lines,dx,dy,kids,col){
       // Centered - straight line down
       lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     } else if(childSpouse){
-      // Child has spouse - line goes UP from child, AWAY from spouse, then to parent line
+      // Child has spouse - line exits from FAR side (away from spouse)
       var spouseX=childSpouse.x||0;
       var childX=child.x||0;
-      // Determine which side of card to exit from (opposite of spouse)
       var exitX;
       if(spouseX>childX){
-        // Spouse is to the right - exit from LEFT side of child's top edge
-        exitX=cx-CW/4; // 1/4 from left
+        // Spouse is to the RIGHT - exit from LEFT side of child card
+        exitX=childX+20; // close to left edge
       } else {
-        // Spouse is to the left - exit from RIGHT side of child's top edge
-        exitX=cx+CW/4; // 1/4 from right
+        // Spouse is to the LEFT - exit from RIGHT side of child card
+        exitX=childX+CW-20; // close to right edge
       }
-      // Draw: from exitX,cy up to a curve point, then horizontal to dx, then up to parent line
-      var curveY=cy-30; // small vertical from child first
+      // Draw: from exitX,cy → up to curveY → horizontal to dx → up to parent line dy
+      var curveY=cy-30;
       lines.push('<line x1="'+exitX+'" y1="'+cy+'" x2="'+exitX+'" y2="'+curveY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
       lines.push('<line x1="'+exitX+'" y1="'+curveY+'" x2="'+dx+'" y2="'+curveY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
       lines.push('<line x1="'+dx+'" y1="'+curveY+'" x2="'+dx+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
