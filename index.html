@@ -1077,7 +1077,28 @@ function savePer(){
         var otherParentExists=false;
         if(S.selRel==='parent'){
           var existingP=S.rs.filter(function(r){return r.type==='parent'&&r.t===S.aid;}).map(function(r){return r.f;}).filter(function(id){return id!==np.id;});
-          if(existingP.length){renderAll();autoSave();toast('Familiar agregado y conectado \u2713','ok');otherParentExists=true;}
+          if(existingP.length){
+            // Auto-add spouse relation between the two parents
+            addRel(np.id, existingP[0], 'spouse');
+            var parent1=S.ps.find(function(p){return p.id===existingP[0];});
+            var parent2=np;
+            var childObj=S.ps.find(function(p){return p.id===S.aid;});
+            if(parent1&&parent2&&childObj){
+              // Enforce gender convention: Male left, Female right
+              if(parent1.gender&&parent2.gender&&parent1.gender!==parent2.gender){
+                var male=parent1.gender==='M'?parent1:parent2;
+                var female=parent1.gender==='F'?parent1:parent2;
+                if((male.x||0)>(female.x||0)){
+                  var tx=male.x; male.x=female.x; female.x=tx;
+                }
+              }
+              // Now center child between FINAL parent positions
+              var midX=(((parent1.x||0)+CW/2)+((parent2.x||0)+CW/2))/2;
+              childObj.x=midX-CW/2;
+              childObj.y=Math.max(parent1.y||0,parent2.y||0)+GAP_V;
+            }
+            renderAll();autoSave();toast('Familiar agregado y conectado \u2713','ok');otherParentExists=true;
+          }
         }else if(S.selRel==='child'){
           var spouseRel=S.rs.find(function(r){return r.type==='spouse'&&(r.f===S.aid||r.t===S.aid);});
           if(spouseRel){var spouseId=spouseRel.f===S.aid?spouseRel.t:spouseRel.f;addRel(spouseId,np.id,'parent');renderAll();autoSave();toast('Familiar agregado \u2713','ok');otherParentExists=true;}
