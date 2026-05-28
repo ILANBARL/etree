@@ -1213,6 +1213,8 @@ function saveOP(){
   // Add parent relations
   addRel(parent1Id,childId,'parent');
   addRel(otherParentId,childId,'parent');
+  // Add SPOUSE relation between the two parents (so the couple line is drawn)
+  if(parent1Id!==otherParentId)addRel(parent1Id,otherParentId,'spouse');
 
   // DO NOT move any existing cards - only position the new parent correctly
   var par1obj=S.ps.find(function(p){return p.id===parent1Id;});
@@ -1440,6 +1442,67 @@ function getHiddenIds(){
 }
 
 // RENDER
+
+// Auto-position children under each couple: single child centered, multiple sorted oldest->youngest
+function autoLayoutChildren(){
+  // Build child->parents and detect couples with shared children
+  var childParents={};
+  S.rs.forEach(function(r){
+    var pid,cid;
+    if(r.type==='parent'){pid=r.f;cid=r.t;}
+    else if(r.type==='child'){pid=r.t;cid=r.f;}
+    else return;
+    if(!childParents[cid])childParents[cid]=[];
+    if(childParents[cid].indexOf(pid)<0)childParents[cid].push(pid);
+  });
+  var doneGroups={};
+  Object.keys(childParents).forEach(function(cid){
+    var parents=childParents[cid];
+    if(parents.length<2)return;
+    var parObjs=parents.map(function(pid){return S.ps.find(function(p){return p.id===pid;});}).filter(Boolean);
+    if(parObjs.length<2)return;
+    var groupKey=parents.slice().sort().join('|');
+    if(doneGroups[groupKey])return;
+    doneGroups[groupKey]=1;
+
+    // GENDER CONVENTION: male left, female right
+    parObjs.sort(function(a,b){return(a.x||0)-(b.x||0);});
+    var p1=parObjs[0],p2=parObjs[parObjs.length-1];
+    if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
+      var male=p1.gender==='M'?p1:p2;
+      var female=p1.gender==='F'?p1:p2;
+      if((male.x||0)>(female.x||0)){
+        var tx=male.x; male.x=female.x; female.x=tx;
+      }
+      parObjs.sort(function(a,b){return(a.x||0)-(b.x||0);});
+      p1=parObjs[0];p2=parObjs[parObjs.length-1];
+    }
+    // Keep both parents on the same Y line
+    var topY=Math.min(p1.y||0,p2.y||0);
+    p1.y=p2.y=topY;
+
+    var midX=(pcx(p1)+pcx(p2))/2;
+
+    // Shared children of this couple
+    var kids=Object.keys(childParents).filter(function(kid){
+      return parents.every(function(pid){return childParents[kid]&&childParents[kid].indexOf(pid)>=0;});
+    }).map(function(kid){return S.ps.find(function(p){return p.id===kid;});}).filter(Boolean);
+    if(!kids.length)return;
+
+    kids.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
+    var childY=topY+GAP_V;
+    if(kids.length===1){
+      kids[0].x=midX-CW/2;
+      kids[0].y=childY;
+    } else {
+      var SIB_SP=30;
+      var totalW=kids.length*CW+(kids.length-1)*SIB_SP;
+      var startX=midX-totalW/2;
+      kids.forEach(function(ch,i){ch.x=startX+i*(CW+SIB_SP);ch.y=childY;});
+    }
+  });
+}
+
 function renderAll(){
   var canvas=$('tree-canvas');
   canvas.querySelectorAll('.card').forEach(function(c){c.remove();});
@@ -1447,6 +1510,9 @@ function renderAll(){
   var em=$('empty');
   if(!S.ps.length){em.classList.remove('hidden');$('tree-svg').innerHTML='';canvas.style.width=canvas.style.height='';$('stp').textContent='0';return;}
   em.classList.add('hidden');$('stp').textContent=S.ps.length;updLim();
+
+  // Auto-position children (centered/sorted) BEFORE drawing cards & lines
+  autoLayoutChildren();
 
   // Compute hidden set
   var hidden=getHiddenIds();
@@ -1558,43 +1624,9 @@ function drawLines(svg){
     }).map(function(kid){return S.ps.find(function(p){return p.id===kid;});}).filter(Boolean);
     sharedChildren.forEach(function(ch){drawnChildren[ch.id]=true;});
     var p1=parObjs[0],p2=parObjs[parObjs.length-1];
-    // Enforce gender convention on the couple: male LEFT, female RIGHT
-    if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
-      var male=p1.gender==='M'?p1:p2;
-      var female=p1.gender==='F'?p1:p2;
-      if((male.x||0)>(female.x||0)){
-        var tx=male.x; male.x=female.x; female.x=tx;
-        // re-evaluate left/right after swap
-        parObjs.sort(function(a,b){return(a.x||0)-(b.x||0);});
-        p1=parObjs[0];p2=parObjs[parObjs.length-1];
-      }
-    }
     // Union point = midpoint between the two parents, at the spouse-line level
     var lineY=(pbot(p1)+pbot(p2))/2;
     var midX=(pcx(p1)+pcx(p2))/2;
-
-    // AUTO-LAYOUT children so the line is always clean:
-    // sort oldest->youngest (left->right) and center the group under the union midpoint
-    if(sharedChildren.length){
-      sharedChildren.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-      var childY=Math.max(p1.y||0,p2.y||0)+GAP_V;
-      if(sharedChildren.length===1){
-        // Single child: place EXACTLY centered under the parents (Drawing 1)
-        sharedChildren[0].x=midX-CW/2;
-        sharedChildren[0].y=childY;
-      } else {
-        // Multiple children: center the whole group under the midpoint, spaced evenly
-        var SIB_SP=30;
-        var totalW=sharedChildren.length*CW+(sharedChildren.length-1)*SIB_SP;
-        var startX=midX-totalW/2;
-        sharedChildren.forEach(function(ch,i){
-          ch.x=startX+i*(CW+SIB_SP);
-          ch.y=childY;
-        });
-      }
-    }
-    // recompute midX after possible swap (positions unchanged but safe)
-    midX=(pcx(p1)+pcx(p2))/2;
     tBar(lines,midX,lineY,sharedChildren,LC);
   });
 
