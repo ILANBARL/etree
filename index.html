@@ -199,50 +199,50 @@ html{height:100%}
 <!-- PERSON MODAL -->
 <div class="overlay" id="pmo" onclick="ovClose(event,'pmo')">
   <div class="modal">
-    <div class="modal-head"><h3 id="pmo-title">Nueva Persona</h3><button class="modal-close" onclick="closePmo()">&#x2715;</button></div>
+    <div class="modal-head"><h3 id="pmo-title" data-i18n="m_new_person">Nueva Persona</h3><button class="modal-close" onclick="closePmo()">&#x2715;</button></div>
     <div class="modal-body">
-      <div class="photo-area" id="pha" onclick="document.getElementById('pfi').click()"><p>&#128247; Foto (opcional)</p></div>
+      <div class="photo-area" id="pha" onclick="document.getElementById('pfi').click()"><p data-i18n="m_photo">&#128247; Foto (opcional)</p></div>
       <input type="file" id="pfi" accept="image/*" style="display:none" onchange="hPhoto(event)">
       <div class="fr">
-        <div class="fg"><label>Nombre(s) *</label><input type="text" id="fn" autocapitalize="words"></div>
-        <div class="fg"><label>Apellido(s) *</label><input type="text" id="fl" autocapitalize="words"></div>
+        <div class="fg"><label data-i18n="m_firstname">Nombre(s) *</label><input type="text" id="fn" autocapitalize="words"></div>
+        <div class="fg"><label data-i18n="m_lastname">Apellido(s) *</label><input type="text" id="fl" autocapitalize="words"></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>Apodo</label><input type="text" id="fnick"></div>
-        <div class="fg"><label>Nombre hebreo</label><input type="text" id="fheb"></div>
+        <div class="fg"><label data-i18n="m_nick">Apodo</label><input type="text" id="fnick"></div>
+        <div class="fg"><label data-i18n="m_hebname">Nombre hebreo</label><input type="text" id="fheb"></div>
       </div>
-      <div class="fg"><label>G&#233;nero</label>
-        <select id="fg2"><option value="">Sin especificar</option><option value="M">Masculino</option><option value="F">Femenino</option></select>
+      <div class="fg"><label data-i18n="m_gender">G&#233;nero</label>
+        <select id="fg2"><option value="" data-i18n="m_gender_none">Sin especificar</option><option value="M" data-i18n="m_gender_m">Masculino</option><option value="F" data-i18n="m_gender_f">Femenino</option></select>
       </div>
       <div class="fr">
-        <div class="fg"><label>Nacimiento (dd/mm/aaaa)</label><input type="text" id="fbd" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
-        <div class="fg"><label>Lugar</label><input type="text" id="fbp" placeholder="Ciudad, Pa&#237;s"></div>
+        <div class="fg"><label data-i18n="m_birth">Nacimiento (dd/mm/aaaa)</label><input type="text" id="fbd" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
+        <div class="fg"><label data-i18n="m_place">Lugar</label><input type="text" id="fbp" placeholder="Ciudad, Pa&#237;s"></div>
       </div>
       <div class="deceased-row" id="dec-row" onclick="togDec()">
         <input type="checkbox" id="fdc" onclick="event.stopPropagation();togDec()">
-        <span>&#127992; Ha fallecido</span>
+        <span data-i18n="m_deceased">&#127992; Ha fallecido</span>
       </div>
       <div class="death-area" id="daf">
         <div class="fr">
-          <div class="fg" style="margin-bottom:0"><label>Defunci&#243;n (dd/mm/aaaa)</label><input type="text" id="fdd" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
-          <div class="fg" style="margin-bottom:0"><label>Lugar</label><input type="text" id="fdp"></div>
+          <div class="fg" style="margin-bottom:0"><label data-i18n="m_death">Defunci&#243;n (dd/mm/aaaa)</label><input type="text" id="fdd" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
+          <div class="fg" style="margin-bottom:0"><label data-i18n="m_place">Lugar</label><input type="text" id="fdp"></div>
         </div>
       </div>
-      <div class="fg"><label>Notas</label><textarea id="fno"></textarea></div>
+      <div class="fg"><label data-i18n="m_notes">Notas</label><textarea id="fno"></textarea></div>
       <div id="rls" style="display:none">
-        <div class="rel-label">Relaci&#243;n con <strong id="rln"></strong></div>
+        <div class="rel-label"><span data-i18n="m_relation_with">Relaci&#243;n con</span> <strong id="rln"></strong></div>
         <div class="rel-grid">
-          <div class="rel-btn" data-r="parent" onclick="pickR(this)"><span>&#128116;</span>Padre/Madre</div>
-          <div class="rel-btn" data-r="child" onclick="pickR(this)"><span>&#128118;</span>Hijo/a</div>
-          <div class="rel-btn" data-r="spouse" onclick="pickR(this)"><span>&#128145;</span>C&#243;nyuge</div>
-          <div class="rel-btn" data-r="spouse-div" onclick="pickR(this)"><span>&#9986;</span>Ex-c&#243;nyuge</div>
-          <div class="rel-btn" data-r="sibling" onclick="pickR(this)"><span>&#128107;</span>Hermano/a</div>
+          <div class="rel-btn" data-r="parent" onclick="pickR(this)"><span>&#128116;</span><span data-i18n="m_rel_parent">Padre/Madre</span></div>
+          <div class="rel-btn" data-r="child" onclick="pickR(this)"><span>&#128118;</span><span data-i18n="m_rel_child">Hijo/a</span></div>
+          <div class="rel-btn" data-r="spouse" onclick="pickR(this)"><span>&#128145;</span><span data-i18n="m_rel_spouse">C&#243;nyuge</span></div>
+          <div class="rel-btn" data-r="spouse-div" onclick="pickR(this)"><span>&#9986;</span><span data-i18n="m_rel_exspouse">Ex-c&#243;nyuge</span></div>
+          <div class="rel-btn" data-r="sibling" onclick="pickR(this)"><span>&#128107;</span><span data-i18n="m_rel_sibling">Hermano/a</span></div>
         </div>
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-k" onclick="closePmo()">Cancelar</button>
-      <button class="btn btn-g" onclick="savePer()">Guardar</button>
+      <button class="btn btn-k" onclick="closePmo()" data-i18n="m_cancel">Cancelar</button>
+      <button class="btn btn-g" onclick="savePer()" data-i18n="m_save">Guardar</button>
     </div>
   </div>
 </div>
@@ -291,7 +291,7 @@ html{height:100%}
         &#9888; Para que <strong id="op-name"></strong> quede bien en el &#225;rbol, se necesita el otro padre/madre.
       </div>
       <div class="fg">
-        <label>Buscar en el &#225;rbol</label>
+        <label data-i18n="m_search_tree">Buscar en el &#225;rbol</label>
         <input type="text" id="op-srch" placeholder="Escribe el nombre..." oninput="searchOP(this.value)">
         <div id="op-res" style="max-height:120px;overflow-y:auto;border:1px solid #d4cfc8;border-radius:8px;display:none;margin-top:4px"></div>
         <div id="op-sel" style="display:none;padding:8px;background:#f7f3ee;border-radius:8px;font-size:13px;margin-top:4px">
@@ -302,36 +302,36 @@ html{height:100%}
       <div style="text-align:center;font-size:12px;color:#7a7268;margin-bottom:12px">&#8212; o crear nuevo &#8212;</div>
       <div style="background:#f7f3ee;border-radius:10px;padding:12px;border:1px solid #d4cfc8">
         <div class="fr">
-          <div class="fg" style="margin-bottom:8px"><label>Nombre(s) *</label><input type="text" id="op-fn" autocapitalize="words"></div>
-          <div class="fg" style="margin-bottom:8px"><label>Apellido(s) *</label><input type="text" id="op-fl" autocapitalize="words"></div>
+          <div class="fg" style="margin-bottom:8px"><label data-i18n="m_firstname">Nombre(s) *</label><input type="text" id="op-fn" autocapitalize="words"></div>
+          <div class="fg" style="margin-bottom:8px"><label data-i18n="m_lastname">Apellido(s) *</label><input type="text" id="op-fl" autocapitalize="words"></div>
         </div>
         <div class="fr">
-          <div class="fg" style="margin-bottom:8px"><label>Apodo</label><input type="text" id="op-nick"></div>
-          <div class="fg" style="margin-bottom:8px"><label>Nombre hebreo</label><input type="text" id="op-heb"></div>
+          <div class="fg" style="margin-bottom:8px"><label data-i18n="m_nick">Apodo</label><input type="text" id="op-nick"></div>
+          <div class="fg" style="margin-bottom:8px"><label data-i18n="m_hebname">Nombre hebreo</label><input type="text" id="op-heb"></div>
         </div>
-        <div class="fg" style="margin-bottom:8px"><label>G&#233;nero</label>
-          <select id="op-gen"><option value="">Sin especificar</option><option value="M">Masculino</option><option value="F">Femenino</option></select>
+        <div class="fg" style="margin-bottom:8px"><label data-i18n="m_gender">G&#233;nero</label>
+          <select id="op-gen"><option value="" data-i18n="m_gender_none">Sin especificar</option><option value="M" data-i18n="m_gender_m">Masculino</option><option value="F" data-i18n="m_gender_f">Femenino</option></select>
         </div>
         <div class="fr">
-          <div class="fg" style="margin-bottom:8px"><label>Nacimiento (dd/mm/aaaa)</label><input type="text" id="op-bdate" placeholder="15/03/1935" maxlength="10" oninput="fmtDateInput(this)"></div>
-          <div class="fg" style="margin-bottom:8px"><label>Lugar</label><input type="text" id="op-bplace" placeholder="Ciudad, Pa&#237;s"></div>
+          <div class="fg" style="margin-bottom:8px"><label data-i18n="m_birth">Nacimiento (dd/mm/aaaa)</label><input type="text" id="op-bdate" placeholder="15/03/1935" maxlength="10" oninput="fmtDateInput(this)"></div>
+          <div class="fg" style="margin-bottom:8px"><label data-i18n="m_place">Lugar</label><input type="text" id="op-bplace" placeholder="Ciudad, Pa&#237;s"></div>
         </div>
         <div class="deceased-row" id="op-dec-row" onclick="togOpDec()" style="margin-top:8px;margin-bottom:8px">
           <input type="checkbox" id="op-deceased" onclick="event.stopPropagation();togOpDec()">
-          <span>&#127992; Ha fallecido</span>
+          <span data-i18n="m_deceased">&#127992; Ha fallecido</span>
         </div>
         <div class="death-area" id="op-daf">
           <div class="fr">
-            <div class="fg" style="margin-bottom:0"><label>Defunci&#243;n (dd/mm/aaaa)</label><input type="text" id="op-ddate" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
-            <div class="fg" style="margin-bottom:0"><label>Lugar</label><input type="text" id="op-dplace"></div>
+            <div class="fg" style="margin-bottom:0"><label data-i18n="m_death">Defunci&#243;n (dd/mm/aaaa)</label><input type="text" id="op-ddate" placeholder="15/03/1969" maxlength="10" oninput="fmtDateInput(this)"></div>
+            <div class="fg" style="margin-bottom:0"><label data-i18n="m_place">Lugar</label><input type="text" id="op-dplace"></div>
           </div>
         </div>
-        <div class="fg" style="margin-bottom:0"><label>Notas</label><textarea id="op-notes" style="min-height:40px"></textarea></div>
+        <div class="fg" style="margin-bottom:0"><label data-i18n="m_notes">Notas</label><textarea id="op-notes" style="min-height:40px"></textarea></div>
       </div>
     </div>
     <div class="modal-foot" style="justify-content:space-between">
-      <button class="btn" style="background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" onclick="deleteChild()">&#128465; Eliminar</button>
-      <button class="btn btn-g" onclick="saveOP()">&#10003; Guardar</button>
+      <button class="btn" style="background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" onclick="deleteChild()">&#128465; <span data-i18n="tip_delete">Eliminar</span></button>
+      <button class="btn btn-g" onclick="saveOP()" data-i18n="m_save_check">&#10003; Guardar</button>
     </div>
   </div>
 </div>
@@ -920,7 +920,7 @@ function openAddMenu(aid){
 function openNewPerson(){
   closeModal('addmenu');
   S.eid=null;S.selRel=null;S.selPhoto=null;
-  $('pmo-title').textContent='Nueva Persona';
+  $('pmo-title').textContent=T('m_new_person');
   clrForm();
   if(S.aid){var a=S.ps.find(function(p){return p.id===S.aid;});if(a){$('rls').style.display='block';$('rln').textContent=a.first+' '+a.last;}}
   else{$('rls').style.display='none';}
@@ -1079,25 +1079,9 @@ function savePer(){
         if(S.selRel==='parent'){
           var existingP=S.rs.filter(function(r){return r.type==='parent'&&r.t===S.aid;}).map(function(r){return r.f;}).filter(function(id){return id!==np.id;});
           if(existingP.length){
-            // Auto-add spouse relation between the two parents
+            // Auto-add spouse relation between the two parents.
+            // Positioning (gender order + centering child) handled by autoLayoutChildren() in renderAll.
             addRel(np.id, existingP[0], 'spouse');
-            var parent1=S.ps.find(function(p){return p.id===existingP[0];});
-            var parent2=np;
-            var childObj=S.ps.find(function(p){return p.id===S.aid;});
-            if(parent1&&parent2&&childObj){
-              // Enforce gender convention: Male left, Female right
-              if(parent1.gender&&parent2.gender&&parent1.gender!==parent2.gender){
-                var male=parent1.gender==='M'?parent1:parent2;
-                var female=parent1.gender==='F'?parent1:parent2;
-                if((male.x||0)>(female.x||0)){
-                  var tx=male.x; male.x=female.x; female.x=tx;
-                }
-              }
-              // Now center child between FINAL parent positions
-              var midX=(((parent1.x||0)+CW/2)+((parent2.x||0)+CW/2))/2;
-              childObj.x=midX-CW/2;
-              childObj.y=Math.max(parent1.y||0,parent2.y||0)+GAP_V;
-            }
             renderAll();autoSave();toast('Familiar agregado y conectado \u2713','ok');otherParentExists=true;
           }
         }else if(S.selRel==='child'){
@@ -1134,7 +1118,7 @@ function showOtherParent(childId,relType,anchorId){
   if($('op-deceased')){$('op-deceased').checked=false;}
   if($('op-dec-row'))$('op-dec-row').classList.remove('on');
   if($('op-daf'))$('op-daf').classList.remove('show');
-  var mo=$('opmo');mo.style.display='flex';mo.style.alignItems='center';mo.style.justifyContent='center';
+  var mo=$('opmo');applyI18n(mo);mo.style.display='flex';mo.style.alignItems='center';mo.style.justifyContent='center';
   document.body.style.overflow='hidden';
 }
 
@@ -1868,7 +1852,7 @@ function expPDF(){
 }
 
 // MODAL
-function openModal(id){$(id).classList.add('show');document.body.style.overflow='hidden';}
+function openModal(id){applyI18n($(id));$(id).classList.add('show');document.body.style.overflow='hidden';}
 function closeModal(id){$(id).classList.remove('show');document.body.style.overflow='';}
 function ovClose(e,id){if(e.target===document.getElementById(id))closeModal(id);}
 
@@ -1894,7 +1878,9 @@ var LANGS={
     no_relation:'Sin parentesco directo',relationship_with:'Parentesco con',
     match_title:'¡Coincidencia encontrada!',match_found:'coincidencia posible',
     search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente',
-    tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí'},
+    tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí',
+    rel_added_connected:'Familiar agregado y conectado ✓',
+    m_new_person:'Nueva Persona',m_photo:'📷 Foto (opcional)',m_firstname:'Nombre(s) *',m_lastname:'Apellido(s) *',m_nick:'Apodo',m_hebname:'Nombre hebreo',m_gender:'Género',m_gender_none:'Sin especificar',m_gender_m:'Masculino',m_gender_f:'Femenino',m_birth:'Nacimiento (dd/mm/aaaa)',m_place:'Lugar',m_deceased:'🎗️ Ha fallecido',m_death:'Defunción (dd/mm/aaaa)',m_notes:'Notas',m_relation_with:'Relación con',m_rel_parent:'Padre/Madre',m_rel_child:'Hijo/a',m_rel_spouse:'Cónyuge',m_rel_exspouse:'Ex-cónyuge',m_rel_sibling:'Hermano/a',m_cancel:'Cancelar',m_save:'Guardar',m_search_person:'Buscar persona',m_search_tree:'Buscar en el árbol',m_search_ph:'Escribe el nombre...',m_connect:'Conectar',m_save_check:'✓ Guardar',m_skip:'Omitir',m_confirm:'Confirmar',m_close:'Cerrar'},
   en:{dir:'ltr',name:'English',
     rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
     rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
@@ -1905,7 +1891,9 @@ var LANGS={
     no_relation:'No direct relationship found',relationship_with:'Relationship with',
     match_title:'Match found!',match_found:'possible match',
     search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree',
-    tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here'},
+    tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here',
+    rel_added_connected:'Relative added and connected ✓',
+    m_new_person:'New Person',m_photo:'📷 Photo (optional)',m_firstname:'First name(s) *',m_lastname:'Last name(s) *',m_nick:'Nickname',m_hebname:'Hebrew name',m_gender:'Gender',m_gender_none:'Unspecified',m_gender_m:'Male',m_gender_f:'Female',m_birth:'Birth (dd/mm/yyyy)',m_place:'Place',m_deceased:'🎗️ Deceased',m_death:'Death (dd/mm/yyyy)',m_notes:'Notes',m_relation_with:'Relationship with',m_rel_parent:'Parent',m_rel_child:'Child',m_rel_spouse:'Spouse',m_rel_exspouse:'Ex-spouse',m_rel_sibling:'Sibling',m_cancel:'Cancel',m_save:'Save',m_search_person:'Search person',m_search_tree:'Search in tree',m_search_ph:'Type the name...',m_connect:'Connect',m_save_check:'✓ Save',m_skip:'Skip',m_confirm:'Confirm',m_close:'Close'},
   he:{dir:'rtl',name:'עברית',
     rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
     rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
@@ -1916,15 +1904,34 @@ var LANGS={
     no_relation:'לא נמצאה קרבה',relationship_with:'קרבה עם',
     match_title:'נמצאה התאמה!',match_found:'התאמה אפשרית',
     search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית',
-    tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים'}
+    tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים',
+    rel_added_connected:'קרוב משפחה נוסף וחובר ✓',
+    m_new_person:'אדם חדש',m_photo:'📷 תמונה (אופציונלי)',m_firstname:'שם פרטי *',m_lastname:'שם משפחה *',m_nick:'כינוי',m_hebname:'שם עברי',m_gender:'מגדר',m_gender_none:'לא צוין',m_gender_m:'זכר',m_gender_f:'נקבה',m_birth:'תאריך לידה (dd/mm/yyyy)',m_place:'מקום',m_deceased:'🎗️ נפטר/ה',m_death:'תאריך פטירה (dd/mm/yyyy)',m_notes:'הערות',m_relation_with:'קרבה עם',m_rel_parent:'הורה',m_rel_child:'ילד/ה',m_rel_spouse:'בן/בת זוג',m_rel_exspouse:'גרוש/ה',m_rel_sibling:'אח/אחות',m_cancel:'ביטול',m_save:'שמור',m_search_person:'חפש אדם',m_search_tree:'חפש בעץ',m_search_ph:'הקלד את השם...',m_connect:'חבר',m_save_check:'✓ שמור',m_skip:'דלג',m_confirm:'אשר',m_close:'סגור'}
 };
 function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
+// Translate every element carrying a data-i18n key into the current language
+function applyI18n(root){
+  var scope=root||document;
+  scope.querySelectorAll('[data-i18n]').forEach(function(el){
+    var key=el.getAttribute('data-i18n');
+    var val=T(key);
+    if(val&&val!==key)el.textContent=val;
+  });
+  // Placeholders
+  scope.querySelectorAll('[data-i18n-ph]').forEach(function(el){
+    var key=el.getAttribute('data-i18n-ph');
+    var val=T(key);
+    if(val&&val!==key)el.placeholder=val;
+  });
+}
 function setLang(lang){
   LANG=lang;
   try{localStorage.setItem('etree_lang',lang);}catch(x){}
   var L=LANGS[lang];
   document.documentElement.dir=L.dir;
   document.documentElement.lang=lang;
+  // Translate all tagged elements (modals, labels, buttons)
+  applyI18n(document);
   // Update app toolbar
   var addBtn=document.querySelector('.btn-g');
   if(addBtn&&addBtn.textContent.indexOf('gregar')>=0||addBtn&&addBtn.textContent.indexOf('dd')>=0||addBtn&&addBtn.textContent.indexOf('הוס')>=0){
@@ -2487,9 +2494,9 @@ window.addEventListener('load',function(){
     else showApp();
     return;
   }
+  // Load language preference FIRST (before any early return)
+  try{var sl=localStorage.getItem('etree_lang');if(sl)setLangLogin(sl);else applyI18n(document);}catch(x){}
   try{var sv=localStorage.getItem('etree_u');if(sv){S.user=JSON.parse(sv);$('login').style.display='none';if(fbDb){loadData();}else{loadLocal();}showApp();return;}}catch(x){}
-  // Load language preference
-  try{var sl=localStorage.getItem('etree_lang');if(sl)setLangLogin(sl);}catch(x){}
   $('einp').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
   var tw=$('tree-wrap'),lastD=0;
   if(tw){
