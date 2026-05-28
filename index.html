@@ -151,6 +151,7 @@ html{height:100%}
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
+    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v1.6</span>
     <div style="margin-left:auto;font-size:11px;color:#7a7268;display:flex;align-items:center;gap:5px;padding:3px 8px;background:#f7f3ee;border-radius:16px;border:1px solid #d4cfc8;flex-shrink:0">
       <span style="width:6px;height:6px;border-radius:50%;background:#5a7a5a;display:inline-block" id="sdot"></span>
       <span id="stx">Listo</span>
@@ -2751,6 +2752,7 @@ document.addEventListener('touchend',function(){if(MD.active){MD.active=false;au
 
 // INIT
 window.addEventListener('load',function(){
+  console.log('%cE-TREE versión 1.6 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
   var params=new URLSearchParams(window.location.search);
   if(params.get('share')){
     S.ro=true;S.user={name:'Visitante',email:'guest',photo:'',initial:'V',guest:true};
