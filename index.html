@@ -547,7 +547,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.5 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.6 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -1654,29 +1654,34 @@ function centerCoupleOverChild(pid1,pid2,childId){
     left=p1.gender==='M'?p1:p2;
     right=p1.gender==='M'?p2:p1;
   }
-  // Find ALL shared children of this couple (so the couple centers over the whole sibling group)
+  // Find ALL shared children of this couple
   var kids=S.ps.filter(function(c){
-    var pars=S.rs.filter(function(r){return r.type==='parent'&&r.t===c.id;}).map(function(r){return r.f;});
+    var pars=parentsOf(c.id);
     return pars.indexOf(pid1)>=0&&pars.indexOf(pid2)>=0;
   });
-  // Fall back to the explicit child if none found yet
   if(!kids.length){var c0=S.ps.find(function(p){return p.id===childId;});if(c0)kids=[c0];}
   if(!kids.length)return;
-  // Children midpoint and their row
+
+  // BEFORE centering, make sure each child that itself is a parent has enough
+  // horizontal room above it so this grandparent-couple fits without overlapping
+  // the OTHER grandparent couple. We do this by spreading the children (and their
+  // subtrees) so each gets a full couple-width of space above.
+  ensureRoomAboveChildren(kids);
+
+  // Recompute children midpoint AFTER spreading
   var kxs=kids.map(function(c){return pcx(c);});
   var childMid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
   var childTopY=Math.min.apply(null,kids.map(function(c){return c.y||0;}));
   var topY=childTopY-GAP_V;
   if(topY<50)topY=50;
-  // Center the pair so its midpoint sits over the children's midpoint
+
   var GAP=GAP_H;
   var pairW=CW*2+GAP;
   var leftX=childMid-pairW/2;
   left.x=leftX; left.y=topY;
   right.x=leftX+CW+GAP; right.y=topY;
 
-  // Collision avoidance: if this couple overlaps any OTHER card at the same generation
-  // row (e.g. the other grandparents), shift ONLY this couple away from the collision.
+  // Light collision check ONLY as a safety net (after spreading, should rarely trigger)
   var pairIds=[left.id,right.id];
   var others=S.ps.filter(function(p){
     return pairIds.indexOf(p.id)<0 && Math.abs((p.y||0)-topY)<CBH*0.6;
@@ -1692,7 +1697,7 @@ function centerCoupleOverChild(pid1,pid2,childId){
       return null;
     }
     var o;
-    while((o=firstOverlap()) && guard++<80){
+    while((o=firstOverlap()) && guard++<40){
       var aMid=(pcx(left)+pcx(right))/2;
       var oMid=(o.x||0)+CW/2;
       var dir=aMid>=oMid?1:-1;
@@ -1700,6 +1705,85 @@ function centerCoupleOverChild(pid1,pid2,childId){
       right.x+=dir*(CW+20);
     }
   }
+}
+
+// Ensure each child (that will receive a grandparent-couple above it) has enough
+// horizontal spacing from its siblings so two grandparent couples don't overlap.
+function ensureRoomAboveChildren(kids){
+  if(kids.length!==1)return; // only the single-child case needs the parent-spread logic
+  var child=kids[0];
+  var sp=spouseIdOf(child.id);
+  if(!sp)return;
+  var spObj=S.ps.find(function(p){return p.id===sp;});
+  if(!spObj)return;
+  var childHasParents=parentsOf(child.id).length>0;
+  var spouseHasParents=parentsOf(sp).length>0;
+  if(!(childHasParents&&spouseHasParents))return;
+  // Each needs a full grandparent-couple width centered above.
+  var needed=(CW*2+GAP_H)+SIB_GAP;
+  var curDist=Math.abs(pcx(spObj)-pcx(child));
+  if(curDist>=needed-1)return;
+  var extra=needed-curDist;
+  var dir=(spObj.x||0)>=(child.x||0)?1:-1;
+  moveMemberAndSubtree(sp, dir*extra);
+  recenterSharedDescendants(child.id, sp);
+  // After spreading, RE-CENTER the grandparent couples of BOTH child and spouse,
+  // so the previously-placed grandparents follow their child to the new position.
+  recenterGrandparentsOf(child.id);
+  recenterGrandparentsOf(sp);
+}
+
+// Re-center the parents (a couple) of a given person over that person, if they exist.
+function recenterGrandparentsOf(personId){
+  var pars=parentsOf(personId);
+  if(pars.length<2)return;
+  var a=S.ps.find(function(p){return p.id===pars[0];});
+  var b=S.ps.find(function(p){return p.id===pars[1];});
+  if(!a||!b)return;
+  var left=a,right=b;
+  if(a.gender&&b.gender&&a.gender!==b.gender){left=a.gender==='M'?a:b;right=a.gender==='M'?b:a;}
+  var person=S.ps.find(function(p){return p.id===personId;});
+  var mid=pcx(person);
+  var topY=(person.y||0)-GAP_V; if(topY<50)topY=50;
+  var pairW=CW*2+GAP_H;
+  var leftX=mid-pairW/2;
+  left.x=leftX; left.y=topY;
+  right.x=leftX+CW+GAP_H; right.y=topY;
+}
+
+// Move a person + their descendants (not their spouse) by dx.
+function moveMemberAndSubtree(rootId,dx){
+  if(!dx)return;
+  var set={}, queue=[rootId]; set[rootId]=true;
+  while(queue.length){
+    var cur=queue.shift();
+    childrenOf(cur).forEach(function(c){
+      if(!set[c]){set[c]=true;queue.push(c);}
+    });
+  }
+  Object.keys(set).forEach(function(id){
+    var p=S.ps.find(function(x){return x.id===id;});
+    if(p)p.x=(p.x||0)+dx;
+  });
+}
+
+// Re-center the shared children of a couple under the couple's new midpoint.
+function recenterSharedDescendants(aId,bId){
+  var a=S.ps.find(function(p){return p.id===aId;});
+  var b=S.ps.find(function(p){return p.id===bId;});
+  if(!a||!b)return;
+  var mid=(pcx(a)+pcx(b))/2;
+  var kids=S.ps.filter(function(c){
+    var pars=parentsOf(c.id);
+    return pars.indexOf(aId)>=0&&pars.indexOf(bId)>=0;
+  });
+  if(!kids.length)return;
+  kids.sort(function(x,y){return getBirthYear(x)-getBirthYear(y);});
+  var kxs=kids.map(function(c){return pcx(c);});
+  var curMid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
+  var dx=mid-curMid;
+  // move each kid subtree by dx
+  kids.forEach(function(k){moveMemberAndSubtree(k.id,dx);});
 }
 
 
@@ -2362,9 +2446,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 1.5 · Iniciado el 30 de abril de 2026',
-    en:'Version 1.5 · Started April 30, 2026',
-    he:'גרסה 1.5 · החל ב-30 באפריל 2026'
+    es:'Versión 1.6 · Iniciado el 30 de abril de 2026',
+    en:'Version 1.6 · Started April 30, 2026',
+    he:'גרסה 1.6 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
