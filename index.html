@@ -171,6 +171,21 @@ html{height:100%}
     <button class="zb" onclick="fitView()" style="font-size:13px">&#8864;</button>
     <div id="zpct">100%</div>
   </div>
+  <div id="gen-ctrl" style="position:fixed;bottom:20px;left:16px;z-index:60;background:white;border:1px solid #d4cfc8;border-radius:12px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.08);font-size:11px;color:#5a5248">
+    <div style="font-weight:600;margin-bottom:6px;text-align:center" id="gen-title" data-i18n="gen_title">Generaciones</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="width:54px" id="gen-up-lbl" data-i18n="gen_up">Arriba</span>
+      <button class="zb" style="width:26px;height:26px" onclick="genAdjust('up',-1)">-</button>
+      <strong id="gen-up-val" style="width:16px;text-align:center">2</strong>
+      <button class="zb" style="width:26px;height:26px" onclick="genAdjust('up',1)">+</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:54px" id="gen-down-lbl" data-i18n="gen_down">Abajo</span>
+      <button class="zb" style="width:26px;height:26px" onclick="genAdjust('down',-1)">-</button>
+      <strong id="gen-down-val" style="width:16px;text-align:center">2</strong>
+      <button class="zb" style="width:26px;height:26px" onclick="genAdjust('down',1)">+</button>
+    </div>
+  </div>
   <div style="position:fixed;bottom:20px;right:16px;z-index:60">
     <button class="btn btn-g" onclick="openShare()">&#128279; Compartir</button>
   </div>
@@ -532,7 +547,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.1 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.5 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -608,7 +623,7 @@ var GAP_V=230, GAP_H=20;
 // STATE
 var S = {ps:[], rs:[], user:null, zoom:1, eid:null, aid:null, selRel:null, selPhoto:null, tmr:null, ro:false,
   connSelId:null, connSelRel:null, opChildId:null, opAnchorId:null, opRelType:null, opSelId:null,
-  collapsed:{}};
+  collapsed:{}, focusId:null, genUp:2, genDown:2, openBranch:{}};
 var SIB = {sibId:null, refId:null, option:null};
 
 // HELPERS
@@ -749,7 +764,7 @@ function loadData(){
   var ref=docRef();
   if(!ref){loadLocal();return;}
   ref.get().then(function(doc){
-    if(doc.exists){var d=doc.data();S.ps=d.ps||[];S.rs=d.rs||[];S.collapsed=d.collapsed||{};if(d.plan&&S.user)S.user.plan=d.plan;}
+    if(doc.exists){var d=doc.data();S.ps=d.ps||[];S.rs=d.rs||[];S.collapsed=d.collapsed||{};S.focusId=d.focusId||null;if(typeof d.genUp==='number')S.genUp=d.genUp;if(typeof d.genDown==='number')S.genDown=d.genDown;S.openBranch=d.openBranch||{};if(d.plan&&S.user)S.user.plan=d.plan;}
     normalizeRels();
     renderAll();
   }).catch(function(){loadLocal();renderAll();});
@@ -757,7 +772,7 @@ function loadData(){
 
 function saveData(){
   var ref=docRef();
-  var data=cleanForFirestore({ps:S.ps,rs:S.rs,collapsed:S.collapsed||{},at:new Date().toISOString()});
+  var data=cleanForFirestore({ps:S.ps,rs:S.rs,collapsed:S.collapsed||{},focusId:S.focusId||null,genUp:S.genUp,genDown:S.genDown,openBranch:S.openBranch||{},at:new Date().toISOString()});
   if(S.user&&S.user.plan)data.plan=S.user.plan;
   if(ref){
     ref.set(data).then(function(){setSI('saved');}).catch(function(e){console.log('Save error:',e);saveLocal();});
@@ -1244,9 +1259,23 @@ function saveSibParents(){
     .map(function(r){return S.ps.find(function(p){return p.id===r.f;});}).filter(Boolean);
   var father=refParents.find(function(p){return p.gender==='M';})||refParents[0];
   var mother=refParents.find(function(p){return p.gender==='F';})||refParents[1];
-  if(SIB.option==='same'){refParents.forEach(function(par){addRel(par.id,SIB.sibId,'parent');});positionSibling(SIB.sibId,SIB.refId,refParents);}
-  else if(SIB.option==='father'&&father){addRel(father.id,SIB.sibId,'parent');positionSibling(SIB.sibId,SIB.refId,[father]);}
-  else if(SIB.option==='mother'&&mother){addRel(mother.id,SIB.sibId,'parent');positionSibling(SIB.sibId,SIB.refId,[mother]);}
+  var linkedParents=[];
+  if(SIB.option==="same"){
+    refParents.forEach(function(par){addRel(par.id,SIB.sibId,"parent");});
+    linkedParents=refParents;
+  } else if(SIB.option==="father"&&father){
+    addRel(father.id,SIB.sibId,"parent");linkedParents=[father];
+  } else if(SIB.option==="mother"&&mother){
+    addRel(mother.id,SIB.sibId,"parent");linkedParents=[mother];
+  }
+  positionSibling(SIB.sibId,SIB.refId,linkedParents);
+  if(linkedParents.length>=2){
+    var males=linkedParents.filter(function(p){return p.gender==="M";});
+    var females=linkedParents.filter(function(p){return p.gender==="F";});
+    var pa=males[0]||linkedParents[0];
+    var pb=females[0]||linkedParents[1];
+    if(pa&&pb&&pa.id!==pb.id) centerCoupleOverChild(pa.id,pb.id,SIB.refId);
+  }
   closeSibModal();renderAll();autoSave();toast('Hermano/a conectado \u2713','ok');
 }
 
@@ -1255,49 +1284,91 @@ function positionSibling(sibId,refId,parents){
   var ref=S.ps.find(function(p){return p.id===refId;});
   if(!sib||!ref)return;
   sib.y=ref.y||0;
+  // The full sibling group (ref + all siblings sharing a parent) is re-laid out by
+  // layoutSiblingGroup() after relations are set. Here we only ensure same row.
+  // Actual X comes from the group layout below.
+  layoutSiblingGroup(refId);
+}
 
-  // Determine sibling birth year vs reference
-  var sibYear=getBirthYear(sib);
-  var refYear=getBirthYear(ref);
+// Lay out a sibling group (all people sharing the same parent set as `memberId`)
+// ordered oldest->left, with spouses attached, centered under their parents.
+// Lower generations are NOT touched (fixed identity). Distances: siblings 30, spouses 20.
+function layoutSiblingGroup(memberId){
+  var refParents=parentsOf(memberId);
+  if(!refParents.length)return;
+  // All people who share AT LEAST one parent with memberId (true siblings/half-siblings)
+  var sibs=S.ps.filter(function(p){
+    var pp=parentsOf(p.id);
+    return pp.some(function(id){return refParents.indexOf(id)>=0;});
+  }).map(function(p){return p.id;});
+  if(!sibs.length)return;
+  // Order siblings by birth year (oldest left). Spouses are NOT part of this ordering.
+  var ordered=orderSiblingsByAge(sibs);
 
-  // Check if ref has spouse - need to know which side to place sibling
-  var refSpouse=null;
-  S.rs.forEach(function(r){
-    if((r.type==='spouse'||r.type==='spouse-div')){
-      if(r.f===refId) refSpouse=S.ps.find(function(p){return p.id===r.t;});
-      else if(r.t===refId) refSpouse=S.ps.find(function(p){return p.id===r.f;});
+  // Determine the row Y (use the existing row of the first sibling that has a position)
+  var rowY=null;
+  ordered.forEach(function(id){var p=S.ps.find(function(x){return x.id===id;});if(p&&rowY===null&&p.y)rowY=p.y;});
+  if(rowY===null){
+    // place one generation below the parents
+    var par=S.ps.find(function(p){return p.id===refParents[0];});
+    rowY=(par&&par.y!=null?par.y:0)+GAP_V;
+  }
+
+  // Build UNITS: each sibling is a unit (with its spouse attached on the correct side).
+  // A unit moves as a block (sibling + spouse + all descendants) so structure is kept.
+  var units=[]; // {members:[ids in left-to-right order], leadId:sibId}
+  ordered.forEach(function(sid){
+    var sibP=S.ps.find(function(p){return p.id===sid;});
+    var sp=spouseIdOf(sid);
+    var spP=sp?S.ps.find(function(p){return p.id===sp;}):null;
+    var members;
+    if(spP && ordered.indexOf(sp)<0){
+      // married: male left, female right
+      if(sibP.gender==='F'&&spP.gender==='M')members=[sp,sid];
+      else members=[sid,sp];
+    } else {
+      members=[sid];
     }
+    units.push({members:members,leadId:sid,married:(members.length===2)});
   });
 
-  if(sibYear<refYear){
-    // Older sibling - place to the LEFT of ref
-    sib.x=(ref.x||0)-CW-30;
-    // If sibling overlaps with anyone to the left, push them further left
-    var leftCards=S.ps.filter(function(p){
-      return p.id!==sibId&&p.id!==refId&&Math.abs((p.y||0)-(ref.y||0))<80&&(p.x||0)<=(sib.x);
+  // Width of each unit and total width (couple gap 20 inside unit; sibling gap 30 between units)
+  function unitWidth(u){ return u.members.length*CW + (u.members.length-1)*SPOUSE_GAP; }
+  var totalW=0;
+  units.forEach(function(u,i){ totalW+=unitWidth(u); if(i<units.length-1)totalW+=SIB_GAP; });
+
+  // Parents' midpoint = where the sibling group must be centered
+  var parObjs=refParents.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
+  var pxs=parObjs.map(function(p){return pcx(p);});
+  var parentMid=pxs.length?((Math.min.apply(null,pxs)+Math.max.apply(null,pxs))/2):pcx(S.ps.find(function(p){return p.id===memberId;}));
+
+  // Place each unit. Within a unit: member0 at curX, member1 at curX+CW+20 (spouse gap).
+  // Move shared descendants by the unit's average shift so they stay centered under the couple.
+  var curX=parentMid-totalW/2;
+  units.forEach(function(u,i){
+    var oldPositions=u.members.map(function(mid){var p=S.ps.find(function(x){return x.id===mid;});return p?(p.x||0):0;});
+    var newPositions=[];
+    var mx=curX;
+    u.members.forEach(function(mid,k){ newPositions.push(mx); mx+=CW+SPOUSE_GAP; });
+    // Average shift of the couple (used to move shared descendants once)
+    var avgOld=oldPositions.reduce(function(a,b){return a+b;},0)/oldPositions.length;
+    var avgNew=newPositions.reduce(function(a,b){return a+b;},0)/newPositions.length;
+    var dxDesc=avgNew-avgOld;
+    // 1) Move shared descendants (children of the unit) by dxDesc, once.
+    var descSet={};
+    u.members.forEach(function(mid){
+      childrenOf(mid).forEach(function(c){
+        if(descSet[c])return;
+        // collect this child's whole subtree
+        var q=[c]; descSet[c]=true;
+        while(q.length){var cur=q.shift();childrenOf(cur).forEach(function(cc){if(!descSet[cc]){descSet[cc]=true;q.push(cc);var cs=spouseIdOf(cc);if(cs&&!descSet[cs]){descSet[cs]=true;q.push(cs);}}});}
+      });
     });
-    leftCards.forEach(function(p){
-      if(Math.abs((p.x||0)-(sib.x))<CW+30){
-        p.x=sib.x-CW-30;
-      }
-    });
-  } else {
-    // Younger sibling - place to the RIGHT of spouse if exists, otherwise right of ref
-    var anchorRight=refSpouse?refSpouse:ref;
-    var anchorX=anchorRight.x||0;
-    // Find siblings already to the right
-    var rightSibs=S.ps.filter(function(p){
-      return p.id!==sibId&&p.id!==refId&&p.id!==(refSpouse?refSpouse.id:'')&&
-        Math.abs((p.y||0)-(ref.y||0))<80&&(p.x||0)>anchorX;
-    });
-    if(rightSibs.length>0){
-      var maxX=Math.max.apply(null,rightSibs.map(function(p){return(p.x||0)+CW;}));
-      sib.x=maxX+30;
-    } else {
-      sib.x=anchorX+CW+30;
-    }
-  }
-  // DO NOT call recenterChildren - it would move spouse too
+    Object.keys(descSet).forEach(function(id){var p=S.ps.find(function(x){return x.id===id;});if(p)p.x=(p.x||0)+dxDesc;});
+    // 2) Set member positions exactly.
+    u.members.forEach(function(mid,k){var p=S.ps.find(function(x){return x.id===mid;});if(p){p.x=newPositions[k];p.y=rowY;}});
+    curX+=unitWidth(u)+SIB_GAP;
+  });
 }
 
 function recenterChildren(parentIds){
@@ -1345,78 +1416,267 @@ function confirmDel(id){
 }
 
 // COLLAPSE / EXPAND DESCENDANTS
-function toggleCollapse(id){
-  if(!S.collapsed)S.collapsed={};
-  if(S.collapsed[id]==='down'){
-    delete S.collapsed[id];
-  } else {
-    S.collapsed[id]='down';
-  }
-  renderAll();
-  autoSave();
+// ===================== MYHERITAGE-STYLE VISIBILITY =====================
+// The tree shows a focus person and a limited number of generations up/down.
+// Opening one ancestor branch automatically closes the spouse's branch.
+
+function getFocusId(){
+  if(S.focusId&&S.ps.find(function(p){return p.id===S.focusId;}))return S.focusId;
+  return S.ps[0]?S.ps[0].id:null;
 }
 
-// Get IDs of all descendants of a person (children, grandchildren, etc.)
+// Set who is centered. Resets to default branch openness.
+function setFocus(id){
+  S.focusId=id;
+  renderAll();autoSave();
+}
+
+// Increase/decrease how many generations are shown.
+function setGenRange(up,down){
+  S.genUp=Math.max(0,Math.min(6,up));
+  S.genDown=Math.max(0,Math.min(6,down));
+  renderAll();autoSave();
+}
+
+// Adjust generations from the on-screen control.
+function genAdjust(dir,delta){
+  if(dir==='up')S.genUp=Math.max(0,Math.min(6,(S.genUp||2)+delta));
+  else S.genDown=Math.max(0,Math.min(6,(S.genDown||2)+delta));
+  updateGenLabels();
+  renderAll();autoSave();
+}
+function updateGenLabels(){
+  var u=$('gen-up-val'),d=$('gen-down-val');
+  if(u)u.textContent=(S.genUp!=null?S.genUp:2);
+  if(d)d.textContent=(S.genDown!=null?S.genDown:2);
+}
+
+// Toggle a specific descendant branch closed/open (the little ▼ on a card).
+function toggleCollapse(id){
+  if(!S.collapsed)S.collapsed={};
+  if(S.collapsed[id]==='down')delete S.collapsed[id];
+  else S.collapsed[id]='down';
+  renderAll();autoSave();
+}
+
+// "Open this ancestor's branch" — opening one parent closes the spouse's side.
+// branchKey groups the two grandparents of a given child: we store which parent is open.
+function openAncestorBranch(parentId,childId){
+  if(!S.openBranch)S.openBranch={};
+  S.openBranch[childId]=parentId; // for this child, show the ancestors of THIS parent
+  renderAll();autoSave();
+}
+
 function getDescendants(rootId){
+  // children of rootId (and its spouse's shared kids) and everything below
   var result={};
-  var queue=[rootId];
+  var seeds=childrenOf(rootId);
+  var rsp=spouseIdOf(rootId);
+  if(rsp)childrenOf(rsp).forEach(function(c){if(seeds.indexOf(c)<0)seeds.push(c);});
+  var queue=[];
+  seeds.forEach(function(c){if(!result[c]){result[c]=true;queue.push(c);}});
   while(queue.length){
     var cur=queue.shift();
-    S.rs.forEach(function(r){
-      if(r.type==='parent'&&r.f===cur){
-        if(!result[r.t]){
-          result[r.t]=true;
-          queue.push(r.t);
-        }
-      }
-    });
+    var sp=spouseIdOf(cur);
+    if(sp&&!result[sp]&&sp!==rootId&&sp!==rsp)result[sp]=true;
+    S.rs.forEach(function(r){if(r.type==='parent'&&r.f===cur&&!result[r.t]){result[r.t]=true;queue.push(r.t);}});
   }
   return result;
 }
 
-// Get the set of all hidden person IDs based on S.collapsed
+// Get ancestors of a person up to `maxUp` generations, respecting the "one branch open" rule.
+function getVisibleAncestors(focusId,maxUp){
+  var visible={};
+  function walk(id,depth){
+    if(depth>maxUp)return;
+    var parents=parentsOf(id);
+    if(!parents.length)return;
+    parents.forEach(function(pid){
+      visible[pid]=true;
+      // spouse of a parent (the other grandparent) is visible at this level
+      var sp=spouseIdOf(pid); if(sp)visible[sp]=true;
+    });
+    // For the NEXT level up, the "one branch open" rule applies:
+    // only follow the parent whose branch is open for this id (default: father / first parent).
+    var openParent=(S.openBranch&&S.openBranch[id])?S.openBranch[id]:null;
+    if(openParent&&parents.indexOf(openParent)>=0){
+      walk(openParent,depth+1);
+    } else {
+      // default: follow ALL parents (show both grandparent lines) until it gets crowded.
+      // To mimic MyHeritage "open one branch at a time" only when user has chosen, we
+      // follow every parent by default so the tree shows naturally; user can focus a branch.
+      parents.forEach(function(pid){walk(pid,depth+1);});
+    }
+  }
+  walk(focusId,1);
+  return visible;
+}
+
+// Get descendants of a person down to `maxDown` generations.
+function getVisibleDescendants(focusId,maxDown){
+  var visible={};
+  function walk(id,depth){
+    if(depth>maxDown)return;
+    childrenOf(id).forEach(function(c){
+      visible[c]=true;
+      var sp=spouseIdOf(c); if(sp)visible[sp]=true;
+      walk(c,depth+1);
+    });
+    // include spouse's kids too (shared children already covered)
+  }
+  // also descend through focus spouse
+  walk(focusId,1);
+  var fsp=spouseIdOf(focusId); if(fsp)walk(fsp,1);
+  return visible;
+}
+
+// Master visibility: everyone hidden EXCEPT focus + spouse + N gens up/down,
+// minus any branch explicitly collapsed with the ▼ button.
 function getHiddenIds(){
   var hidden={};
-  if(!S.collapsed)return hidden;
-  Object.keys(S.collapsed).forEach(function(rootId){
-    if(S.collapsed[rootId]==='down'){
-      var d=getDescendants(rootId);
-      Object.keys(d).forEach(function(id){hidden[id]=true;});
-    }
+  if(!S.ps.length)return hidden;
+  var focus=getFocusId();
+  if(!focus)return hidden;
+
+  // Build the visible set
+  var visible={};
+  visible[focus]=true;
+  var fsp=spouseIdOf(focus); if(fsp)visible[fsp]=true;
+  // siblings of focus stay visible (same generation)
+  parentsOf(focus).forEach(function(pid){
+    childrenOf(pid).forEach(function(sib){visible[sib]=true;var ss=spouseIdOf(sib);if(ss)visible[ss]=true;});
   });
+
+  var up=getVisibleAncestors(focus,S.genUp||2);
+  Object.keys(up).forEach(function(id){visible[id]=true;});
+  var down=getVisibleDescendants(focus,S.genDown||2);
+  Object.keys(down).forEach(function(id){visible[id]=true;});
+
+  // Everyone not in `visible` is hidden by the generation window
+  S.ps.forEach(function(p){if(!visible[p.id])hidden[p.id]=true;});
+
+  // Apply explicit ▼ collapses (hide descendants of any collapsed node)
+  if(S.collapsed){
+    Object.keys(S.collapsed).forEach(function(rootId){
+      if(S.collapsed[rootId]==='down'){
+        var d=getDescendants(rootId);
+        Object.keys(d).forEach(function(id){hidden[id]=true;});
+      }
+    });
+  }
   return hidden;
 }
 
-// RENDER
+// ===================== GENERATION-BASED LAYOUT ENGINE =====================
+// Distances (Ilan's spec): siblings 30px, spouses 20px.
+var SIB_GAP=30, SPOUSE_GAP=20;
 
-// Auto-position children under each couple: single child centered, multiple sorted oldest->youngest
-// Center a couple of parents OVER their (already-placed) child, without moving the child.
-// Used when grandparents/ancestors are added (Drawings 2 & 4): the lower generation is fixed.
+// Assign a generation level to every person via BFS from an anchor.
+// parent => level-1 (above), child => level+1 (below), spouse/sibling => same level.
+function assignGenerations(anchorId){
+  var level={}, visited={};
+  var start=anchorId&&S.ps.find(function(p){return p.id===anchorId;})?anchorId:(S.ps[0]&&S.ps[0].id);
+  if(!start)return level;
+  var queue=[{id:start,lv:0}]; level[start]=0; visited[start]=true;
+  while(queue.length){
+    var cur=queue.shift();
+    S.rs.forEach(function(r){
+      if(r.type==='parent'){
+        if(r.t===cur.id&&!visited[r.f]){level[r.f]=cur.lv-1;visited[r.f]=true;queue.push({id:r.f,lv:cur.lv-1});}
+        if(r.f===cur.id&&!visited[r.t]){level[r.t]=cur.lv+1;visited[r.t]=true;queue.push({id:r.t,lv:cur.lv+1});}
+      } else if(r.type==='spouse'||r.type==='spouse-div'||r.type==='sibling'){
+        var o=r.f===cur.id?r.t:(r.t===cur.id?r.f:null);
+        if(o&&!visited[o]){level[o]=cur.lv;visited[o]=true;queue.push({id:o,lv:cur.lv});}
+      }
+    });
+  }
+  // Any disconnected people default to level 0
+  S.ps.forEach(function(p){if(level[p.id]===undefined)level[p.id]=0;});
+  return level;
+}
+
+function spouseIdOf(id){
+  var sr=S.rs.find(function(r){return(r.type==='spouse'||r.type==='spouse-div')&&(r.f===id||r.t===id);});
+  return sr?(sr.f===id?sr.t:sr.f):null;
+}
+function parentsOf(id){
+  return S.rs.filter(function(r){return r.type==='parent'&&r.t===id;}).map(function(r){return r.f;});
+}
+function childrenOf(id){
+  return S.rs.filter(function(r){return r.type==='parent'&&r.f===id;}).map(function(r){return r.t;});
+}
+
+// Collect a person + their spouse + ALL descendants (recursively). Returns a set of ids.
+function collectSubtree(rootId){
+  var set={}, queue=[rootId];
+  set[rootId]=true;
+  // include spouse of root
+  var sp=spouseIdOf(rootId);
+  if(sp){set[sp]=true;queue.push(sp);}
+  while(queue.length){
+    var cur=queue.shift();
+    childrenOf(cur).forEach(function(c){
+      if(!set[c]){set[c]=true;queue.push(c);
+        var cs=spouseIdOf(c); if(cs&&!set[cs]){set[cs]=true;queue.push(cs);}
+      }
+    });
+  }
+  return set;
+}
+
+// Move a person + spouse + all descendants horizontally by dx (keeps structure intact).
+function moveSubtreeX(rootId,dx){
+  if(!dx)return;
+  var set=collectSubtree(rootId);
+  Object.keys(set).forEach(function(id){
+    var p=S.ps.find(function(x){return x.id===id;});
+    if(p)p.x=(p.x||0)+dx;
+  });
+}
+
+// Order a sibling group oldest->youngest (left->right). Ties keep insertion order.
+function orderSiblingsByAge(ids){
+  return ids.slice().sort(function(a,b){
+    var pa=S.ps.find(function(p){return p.id===a;});
+    var pb=S.ps.find(function(p){return p.id===b;});
+    return getBirthYear(pa)-getBirthYear(pb);
+  });
+}
+
+// ===================== RENDER =====================
 function centerCoupleOverChild(pid1,pid2,childId){
   var p1=S.ps.find(function(p){return p.id===pid1;});
   var p2=S.ps.find(function(p){return p.id===pid2;});
-  var child=S.ps.find(function(p){return p.id===childId;});
-  if(!p1||!p2||!child)return;
+  if(!p1||!p2)return;
   // Gender order: male left, female right
   var left=p1,right=p2;
   if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
     left=p1.gender==='M'?p1:p2;
     right=p1.gender==='M'?p2:p1;
   }
-  // Same Y for the couple, exactly one generation above the child
-  var topY=(child.y||0)-GAP_V;
+  // Find ALL shared children of this couple (so the couple centers over the whole sibling group)
+  var kids=S.ps.filter(function(c){
+    var pars=S.rs.filter(function(r){return r.type==='parent'&&r.t===c.id;}).map(function(r){return r.f;});
+    return pars.indexOf(pid1)>=0&&pars.indexOf(pid2)>=0;
+  });
+  // Fall back to the explicit child if none found yet
+  if(!kids.length){var c0=S.ps.find(function(p){return p.id===childId;});if(c0)kids=[c0];}
+  if(!kids.length)return;
+  // Children midpoint and their row
+  var kxs=kids.map(function(c){return pcx(c);});
+  var childMid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
+  var childTopY=Math.min.apply(null,kids.map(function(c){return c.y||0;}));
+  var topY=childTopY-GAP_V;
   if(topY<50)topY=50;
-  // Center the pair so its midpoint sits over the child's center
-  var childMid=pcx(child);
-  // pair occupies: leftX .. leftX+CW (gap) rightX..rightX+CW ; midpoint = leftX+CW+GAP_H/2
+  // Center the pair so its midpoint sits over the children's midpoint
   var GAP=GAP_H;
   var pairW=CW*2+GAP;
   var leftX=childMid-pairW/2;
   left.x=leftX; left.y=topY;
   right.x=leftX+CW+GAP; right.y=topY;
 
-  // Collision avoidance: if this new couple overlaps any OTHER card already at the
-  // same generation row, shift ONLY this new couple away from the collision.
+  // Collision avoidance: if this couple overlaps any OTHER card at the same generation
+  // row (e.g. the other grandparents), shift ONLY this couple away from the collision.
   var pairIds=[left.id,right.id];
   var others=S.ps.filter(function(p){
     return pairIds.indexOf(p.id)<0 && Math.abs((p.y||0)-topY)<CBH*0.6;
@@ -1435,7 +1695,6 @@ function centerCoupleOverChild(pid1,pid2,childId){
     while((o=firstOverlap()) && guard++<80){
       var aMid=(pcx(left)+pcx(right))/2;
       var oMid=(o.x||0)+CW/2;
-      // Move away from the colliding card: if it's to our left, go right; else go left
       var dir=aMid>=oMid?1:-1;
       left.x+=dir*(CW+20);
       right.x+=dir*(CW+20);
@@ -1484,6 +1743,10 @@ function renderAll(){
   var em=$('empty');
   if(!S.ps.length){em.classList.remove('hidden');$('tree-svg').innerHTML='';canvas.style.width=canvas.style.height='';$('stp').textContent='0';return;}
   em.classList.add('hidden');$('stp').textContent=S.ps.length;updLim();
+
+  // Default focus = first person if not set
+  if(!S.focusId||!S.ps.find(function(p){return p.id===S.focusId;})){S.focusId=S.ps[0].id;}
+  updateGenLabels();
 
   // Compute hidden set
   var hidden=getHiddenIds();
@@ -1543,6 +1806,7 @@ function mkCard(p){
   card.innerHTML='<div class="card-photo">'+ph+badge+'</div>'+
     '<div class="card-body"><div class="card-name">'+nm+'</div>'+(dates?'<div class="card-date">'+dates+'</div>':'')+'</div>'+acts;
   card.addEventListener('click',function(e){if(!e.target.closest('.card-actions')){card.classList.toggle('active');showDet(p.id);}});
+  card.addEventListener('dblclick',function(e){e.preventDefault();e.stopPropagation();setFocus(p.id);toast(T('focus_set')+': '+p.first,'ok');});
   return card;
 }
 
@@ -1865,7 +2129,7 @@ var LANGS={
     no_relation:'Sin parentesco directo',relationship_with:'Parentesco con',
     match_title:'¡Coincidencia encontrada!',match_found:'coincidencia posible',
     search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente',
-    tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí',
+    tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí',gen_title:'Generaciones',gen_up:'Arriba',gen_down:'Abajo',focus_set:'Centrado en',
     rel_added_connected:'Familiar agregado y conectado ✓',
     m_new_person:'Nueva Persona',m_photo:'📷 Foto (opcional)',m_firstname:'Nombre(s) *',m_lastname:'Apellido(s) *',m_nick:'Apodo',m_hebname:'Nombre hebreo',m_gender:'Género',m_gender_none:'Sin especificar',m_gender_m:'Masculino',m_gender_f:'Femenino',m_birth:'Nacimiento (dd/mm/aaaa)',m_place:'Lugar',m_deceased:'🎗️ Ha fallecido',m_death:'Defunción (dd/mm/aaaa)',m_notes:'Notas',m_relation_with:'Relación con',m_rel_parent:'Padre/Madre',m_rel_child:'Hijo/a',m_rel_spouse:'Cónyuge',m_rel_exspouse:'Ex-cónyuge',m_rel_sibling:'Hermano/a',m_cancel:'Cancelar',m_save:'Guardar',m_search_person:'Buscar persona',m_search_tree:'Buscar en el árbol',m_search_ph:'Escribe el nombre...',m_connect:'Conectar',m_save_check:'✓ Guardar',m_skip:'Omitir',m_confirm:'Confirmar',m_close:'Cerrar'},
   en:{dir:'ltr',name:'English',
@@ -1878,7 +2142,7 @@ var LANGS={
     no_relation:'No direct relationship found',relationship_with:'Relationship with',
     match_title:'Match found!',match_found:'possible match',
     search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree',
-    tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here',
+    tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here',gen_title:'Generations',gen_up:'Up',gen_down:'Down',focus_set:'Centered on',
     rel_added_connected:'Relative added and connected ✓',
     m_new_person:'New Person',m_photo:'📷 Photo (optional)',m_firstname:'First name(s) *',m_lastname:'Last name(s) *',m_nick:'Nickname',m_hebname:'Hebrew name',m_gender:'Gender',m_gender_none:'Unspecified',m_gender_m:'Male',m_gender_f:'Female',m_birth:'Birth (dd/mm/yyyy)',m_place:'Place',m_deceased:'🎗️ Deceased',m_death:'Death (dd/mm/yyyy)',m_notes:'Notes',m_relation_with:'Relationship with',m_rel_parent:'Parent',m_rel_child:'Child',m_rel_spouse:'Spouse',m_rel_exspouse:'Ex-spouse',m_rel_sibling:'Sibling',m_cancel:'Cancel',m_save:'Save',m_search_person:'Search person',m_search_tree:'Search in tree',m_search_ph:'Type the name...',m_connect:'Connect',m_save_check:'✓ Save',m_skip:'Skip',m_confirm:'Confirm',m_close:'Close'},
   he:{dir:'rtl',name:'עברית',
@@ -1891,7 +2155,7 @@ var LANGS={
     no_relation:'לא נמצאה קרבה',relationship_with:'קרבה עם',
     match_title:'נמצאה התאמה!',match_found:'התאמה אפשרית',
     search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית',
-    tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים',
+    tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים',gen_title:'דורות',gen_up:'למעלה',gen_down:'למטה',focus_set:'במרכז',
     rel_added_connected:'קרוב משפחה נוסף וחובר ✓',
     m_new_person:'אדם חדש',m_photo:'📷 תמונה (אופציונלי)',m_firstname:'שם פרטי *',m_lastname:'שם משפחה *',m_nick:'כינוי',m_hebname:'שם עברי',m_gender:'מגדר',m_gender_none:'לא צוין',m_gender_m:'זכר',m_gender_f:'נקבה',m_birth:'תאריך לידה (dd/mm/yyyy)',m_place:'מקום',m_deceased:'🎗️ נפטר/ה',m_death:'תאריך פטירה (dd/mm/yyyy)',m_notes:'הערות',m_relation_with:'קרבה עם',m_rel_parent:'הורה',m_rel_child:'ילד/ה',m_rel_spouse:'בן/בת זוג',m_rel_exspouse:'גרוש/ה',m_rel_sibling:'אח/אחות',m_cancel:'ביטול',m_save:'שמור',m_search_person:'חפש אדם',m_search_tree:'חפש בעץ',m_search_ph:'הקלד את השם...',m_connect:'חבר',m_save_check:'✓ שמור',m_skip:'דלג',m_confirm:'אשר',m_close:'סגור'}
 };
@@ -2098,9 +2362,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 1.1 · Iniciado el 30 de abril de 2026',
-    en:'Version 1.1 · Started April 30, 2026',
-    he:'גרסה 1.1 · החל ב-30 באפריל 2026'
+    es:'Versión 1.5 · Iniciado el 30 de abril de 2026',
+    en:'Version 1.5 · Started April 30, 2026',
+    he:'גרסה 1.5 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
