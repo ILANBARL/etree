@@ -607,7 +607,8 @@ var GAP_V=230, GAP_H=20;
 
 // STATE
 var S = {ps:[], rs:[], user:null, zoom:1, eid:null, aid:null, selRel:null, selPhoto:null, tmr:null, ro:false,
-  connSelId:null, connSelRel:null, opChildId:null, opAnchorId:null, opRelType:null, opSelId:null};
+  connSelId:null, connSelRel:null, opChildId:null, opAnchorId:null, opRelType:null, opSelId:null,
+  collapsed:{}};
 var SIB = {sibId:null, refId:null, option:null};
 
 // HELPERS
@@ -748,7 +749,7 @@ function loadData(){
   var ref=docRef();
   if(!ref){loadLocal();return;}
   ref.get().then(function(doc){
-    if(doc.exists){var d=doc.data();S.ps=d.ps||[];S.rs=d.rs||[];if(d.plan&&S.user)S.user.plan=d.plan;}
+    if(doc.exists){var d=doc.data();S.ps=d.ps||[];S.rs=d.rs||[];S.collapsed=d.collapsed||{};if(d.plan&&S.user)S.user.plan=d.plan;}
     normalizeRels();
     renderAll();
   }).catch(function(){loadLocal();renderAll();});
@@ -756,15 +757,15 @@ function loadData(){
 
 function saveData(){
   var ref=docRef();
-  var data=cleanForFirestore({ps:S.ps,rs:S.rs,at:new Date().toISOString()});
+  var data=cleanForFirestore({ps:S.ps,rs:S.rs,collapsed:S.collapsed||{},at:new Date().toISOString()});
   if(S.user&&S.user.plan)data.plan=S.user.plan;
   if(ref){
     ref.set(data).then(function(){setSI('saved');}).catch(function(e){console.log('Save error:',e);saveLocal();});
   }else{saveLocal();setSI('saved');}
 }
 
-function saveLocal(){try{localStorage.setItem('etree_d',JSON.stringify({ps:S.ps,rs:S.rs}));}catch(x){}}
-function loadLocal(){try{var r=localStorage.getItem('etree_d');if(r){var d=JSON.parse(r);S.ps=d.ps||[];S.rs=d.rs||[];}}catch(x){}}
+function saveLocal(){try{localStorage.setItem('etree_d',JSON.stringify({ps:S.ps,rs:S.rs,collapsed:S.collapsed||{}}));}catch(x){}}
+function loadLocal(){try{var r=localStorage.getItem('etree_d');if(r){var d=JSON.parse(r);S.ps=d.ps||[];S.rs=d.rs||[];S.collapsed=d.collapsed||{};}}catch(x){}}
 function saveTree(){saveData();toast('\u00c1rbol guardado \u2713','ok');}
 var _saveCount=0, _saveReset=null;
 function autoSave(){
@@ -1395,18 +1396,82 @@ function confirmDel(id){
   openModal('delmo');
 }
 
+// COLLAPSE / EXPAND DESCENDANTS
+function toggleCollapse(id){
+  if(!S.collapsed)S.collapsed={};
+  if(S.collapsed[id]==='down'){
+    delete S.collapsed[id];
+  } else {
+    S.collapsed[id]='down';
+  }
+  renderAll();
+  autoSave();
+}
+
+// Get IDs of all descendants of a person (children, grandchildren, etc.)
+function getDescendants(rootId){
+  var result={};
+  var queue=[rootId];
+  while(queue.length){
+    var cur=queue.shift();
+    S.rs.forEach(function(r){
+      if(r.type==='parent'&&r.f===cur){
+        if(!result[r.t]){
+          result[r.t]=true;
+          queue.push(r.t);
+        }
+      }
+    });
+  }
+  return result;
+}
+
+// Get the set of all hidden person IDs based on S.collapsed
+function getHiddenIds(){
+  var hidden={};
+  if(!S.collapsed)return hidden;
+  Object.keys(S.collapsed).forEach(function(rootId){
+    if(S.collapsed[rootId]==='down'){
+      var d=getDescendants(rootId);
+      Object.keys(d).forEach(function(id){hidden[id]=true;});
+    }
+  });
+  return hidden;
+}
+
 // RENDER
 function renderAll(){
   var canvas=$('tree-canvas');
   canvas.querySelectorAll('.card').forEach(function(c){c.remove();});
+  canvas.querySelectorAll('.collapse-badge').forEach(function(c){c.remove();});
   var em=$('empty');
   if(!S.ps.length){em.classList.remove('hidden');$('tree-svg').innerHTML='';canvas.style.width=canvas.style.height='';$('stp').textContent='0';return;}
   em.classList.add('hidden');$('stp').textContent=S.ps.length;updLim();
+
+  // Compute hidden set
+  var hidden=getHiddenIds();
+  var visiblePs=S.ps.filter(function(p){return !hidden[p.id];});
+
   var maxX2=0,maxY2=0;
-  S.ps.forEach(function(p){maxX2=Math.max(maxX2,(p.x||0)+CW+300);maxY2=Math.max(maxY2,(p.y||0)+CBH+300);});
+  visiblePs.forEach(function(p){maxX2=Math.max(maxX2,(p.x||0)+CW+300);maxY2=Math.max(maxY2,(p.y||0)+CBH+300);});
   canvas.style.width=Math.max(5000,maxX2)+'px';canvas.style.height=Math.max(5000,maxY2)+'px';
   var svg=$('tree-svg');svg.setAttribute('width',Math.max(5000,maxX2));svg.setAttribute('height',Math.max(5000,maxY2));
-  S.ps.forEach(function(p){var c=mkCard(p);canvas.appendChild(c);if(!S.ro)mkDrag(c,p);});
+  visiblePs.forEach(function(p){var c=mkCard(p);canvas.appendChild(c);if(!S.ro)mkDrag(c,p);});
+
+  // Add hidden indicator badges
+  Object.keys(S.collapsed||{}).forEach(function(rootId){
+    if(S.collapsed[rootId]!=='down')return;
+    var p=S.ps.find(function(x){return x.id===rootId;});
+    if(!p||hidden[rootId])return;
+    var badge=document.createElement('div');
+    badge.className='collapse-badge';
+    badge.title=T('hidden_indicator');
+    badge.style.cssText='position:absolute;left:'+(pcx(p)-10)+'px;top:'+(pbot(p)+8)+'px;width:20px;height:20px;border-radius:50%;background:#c4a35a;color:white;font-size:13px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2);z-index:3';
+    badge.textContent='⋯';
+    badge.onclick=function(e){e.stopPropagation();toggleCollapse(rootId);};
+    canvas.appendChild(badge);
+  });
+
   requestAnimationFrame(function(){drawLines(svg);setTimeout(function(){centerView();},100);});
 }
 
@@ -1425,11 +1490,17 @@ function mkCard(p){
   var nm=p.nick?p.first+' ('+p.nick+') '+p.last:p.first+' '+p.last;
   var acts='';
   if(!S.ro){
+    // Determine if this person has descendants (children/grandchildren visible)
+    var hasDescendants=S.rs.some(function(r){return r.type==='parent'&&r.f===p.id;});
+    var isCollapsed=S.collapsed&&S.collapsed[p.id]==='down';
     acts='<div class="card-actions">';
-    acts+='<button class="ca" onclick="event.stopPropagation();showDet(\''+p.id+'\')">&#128065;</button>';
-    acts+='<button class="ca" onclick="event.stopPropagation();openAddMenu(\''+p.id+'\')">&#65291;</button>';
-    acts+='<button class="ca" onclick="event.stopPropagation();openEdit(\''+p.id+'\')">&#9999;</button>';
-    acts+='<button class="ca" onclick="event.stopPropagation();confirmDel(\''+p.id+'\')">&#128465;</button>';
+    acts+='<button class="ca" title="'+T('tip_view')+'" onclick="event.stopPropagation();showDet(\''+p.id+'\')">&#128065;</button>';
+    acts+='<button class="ca" title="'+T('tip_add_rel')+'" onclick="event.stopPropagation();openAddMenu(\''+p.id+'\')">&#65291;</button>';
+    acts+='<button class="ca" title="'+T('tip_edit')+'" onclick="event.stopPropagation();openEdit(\''+p.id+'\')">&#9999;</button>';
+    if(hasDescendants){
+      acts+='<button class="ca" title="'+T('tip_collapse')+'" onclick="event.stopPropagation();toggleCollapse(\''+p.id+'\')">'+(isCollapsed?'&#9654;':'&#9660;')+'</button>';
+    }
+    acts+='<button class="ca" title="'+T('tip_delete')+'" onclick="event.stopPropagation();confirmDel(\''+p.id+'\')">&#128465;</button>';
     acts+='</div>';
   }
   card.innerHTML='<div class="card-photo">'+ph+badge+'</div>'+
@@ -1440,21 +1511,27 @@ function mkCard(p){
 
 // DRAW LINES
 function drawLines(svg){
-  var lines=[],seenO={};
+  var lines=[];
+  var hidden=getHiddenIds();
+  var vis=function(id){return !hidden[id];}; // is visible
+
   var childParents={},parentChildren={};
   S.rs.forEach(function(r){
     var pid,cid;
     if(r.type==='parent'){pid=r.f;cid=r.t;}
     else if(r.type==='child'){pid=r.t;cid=r.f;}
     else return;
+    if(!vis(pid)||!vis(cid))return; // skip if either side hidden
     if(!childParents[cid])childParents[cid]=[];
     if(childParents[cid].indexOf(pid)<0)childParents[cid].push(pid);
     if(!parentChildren[pid])parentChildren[pid]=[];
     if(parentChildren[pid].indexOf(cid)<0)parentChildren[pid].push(cid);
   });
-  // Draw spouse/partner lines
+
+  // --- SPOUSE LINES (horizontal between couple) ---
   var seenSpouse={};
   S.rs.filter(function(r){return r.type==='spouse'||r.type==='spouse-div';}).forEach(function(r){
+    if(!vis(r.f)||!vis(r.t))return;
     var k=[r.f,r.t].sort().join('|');if(seenSpouse[k])return;seenSpouse[k]=1;
     var a=S.ps.find(function(p){return p.id===r.f;});
     var b=S.ps.find(function(p){return p.id===r.t;});
@@ -1462,10 +1539,11 @@ function drawLines(svg){
     var left=pcx(a)<=pcx(b)?a:b;
     var right=pcx(a)<=pcx(b)?b:a;
     var lineY=(pbot(left)+pbot(right))/2;
-    // Simple line between spouses
-    lines.push('<line x1="'+prgt(left)+'" y1="'+lineY+'" x2="'+plft(right)+'" y2="'+lineY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
+    var dash=r.type==='spouse-div'?' stroke-dasharray="6,4"':'';
+    lines.push('<line x1="'+prgt(left)+'" y1="'+lineY+'" x2="'+plft(right)+'" y2="'+lineY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"'+dash+'/>');
   });
 
+  // --- PARENT->CHILDREN CONNECTORS (couples with shared children) ---
   var drawnGroups={},drawnChildren={};
   Object.keys(childParents).forEach(function(cid){
     var parents=childParents[cid];
@@ -1480,74 +1558,57 @@ function drawLines(svg){
     }).map(function(kid){return S.ps.find(function(p){return p.id===kid;});}).filter(Boolean);
     sharedChildren.forEach(function(ch){drawnChildren[ch.id]=true;});
     var p1=parObjs[0],p2=parObjs[parObjs.length-1];
-    var lineY=Math.max(pbot(p1),pbot(p2));
+    // Union point = midpoint between the two parents, at the spouse-line level
+    var lineY=(pbot(p1)+pbot(p2))/2;
     var midX=(pcx(p1)+pcx(p2))/2;
-    lines.push('<line x1="'+pcx(p1)+'" y1="'+lineY+'" x2="'+pcx(p2)+'" y2="'+lineY+'" stroke="'+LC+'" stroke-width="2" stroke-linecap="round"/>');
+    // A short vertical "drop" from the union midpoint to start the connector
     tBar(lines,midX,lineY,sharedChildren,LC);
   });
+
+  // --- SINGLE-PARENT CHILDREN (no second parent) ---
   Object.keys(parentChildren).forEach(function(pid){
     var par=S.ps.find(function(p){return p.id===pid;});if(!par)return;
     var soloKids=parentChildren[pid].filter(function(cid){return !drawnChildren[cid];})
       .map(function(cid){return S.ps.find(function(p){return p.id===cid;});}).filter(Boolean);
     if(soloKids.length>0)tBar(lines,pcx(par),pbot(par),soloKids,LC);
   });
-  var oc={grandparent:'#8a9e6a',grandchild:'#8a9e6a',uncle:'#9aae9a',cousin:'#b8a898'};
-  S.rs.filter(function(r){return oc[r.type];}).forEach(function(r){
-    var k=[r.f,r.t].sort().join('|')+r.type;if(seenO[k])return;seenO[k]=1;
-    var a=S.ps.find(function(p){return p.id===r.f;}),b=S.ps.find(function(p){return p.id===r.t;});
-    if(!a||!b)return;
-    var cx1=pcx(a),cy1=pmid(a),cx2=pcx(b),cy2=pmid(b),cpx=(cx1+cx2)/2;
-    lines.push('<path d="M'+cx1+','+cy1+' C'+cpx+','+cy1+' '+cpx+','+cy2+' '+cx2+','+cy2+'" stroke="'+oc[r.type]+'" stroke-width="1.5" fill="none" stroke-dasharray="4,3" opacity=".7"/>');
-  });
+
   svg.innerHTML=lines.join('');
 }
 
 function tBar(lines,dx,dy,kids,col){
   if(!kids.length)return;
+  // Order children oldest->left, youngest->right (by birth year)
+  kids=kids.slice().sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
+
   if(kids.length===1){
-    var child=kids[0];var cx=pcx(child);var cy=ptop(child);
-    // Check if child has a spouse - if so, draw curve AWAY from spouse
-    var childSpouse=null;
-    S.rs.forEach(function(r){
-      if(r.type==='spouse'||r.type==='spouse-div'){
-        if(r.f===child.id) childSpouse=S.ps.find(function(p){return p.id===r.t;});
-        else if(r.t===child.id) childSpouse=S.ps.find(function(p){return p.id===r.f;});
-      }
-    });
+    var child=kids[0];
+    var cx=pcx(child);   // child center X
+    var cy=ptop(child);  // child top Y (connection enters center-top)
     if(Math.abs(dx-cx)<4){
-      // Centered - straight line down
+      // Perfectly centered (Drawing 1): single straight vertical line
       lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-    } else if(childSpouse){
-      // Child has spouse - line exits from FAR side, goes UP, then HORIZONTAL to parent line
-      var spouseX=childSpouse.x||0;
-      var childX=child.x||0;
-      var exitX;
-      if(spouseX>childX){
-        // Spouse to the RIGHT - exit from LEFT edge
-        exitX=childX;
-      } else {
-        // Spouse to the LEFT - exit from RIGHT edge
-        exitX=childX+CW;
-      }
-      // Vertical from child top (at edge) UP to parent line level dy
-      lines.push('<line x1="'+exitX+'" y1="'+cy+'" x2="'+exitX+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      // Horizontal from exitX at dy level to dx (parent midpoint)
-      lines.push('<line x1="'+exitX+'" y1="'+dy+'" x2="'+dx+'" y2="'+dy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     } else {
-      // No spouse - original simple line (down then horizontal)
-      lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      if(Math.abs(dx-cx)>4){
-        lines.push('<line x1="'+dx+'" y1="'+cy+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-      }
+      // Not centered: clean elbow -> down to mid level, horizontal, down into child
+      var midY=(dy+cy)/2;
+      lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+midY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      lines.push('<line x1="'+dx+'" y1="'+midY+'" x2="'+cx+'" y2="'+midY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+      lines.push('<line x1="'+cx+'" y1="'+midY+'" x2="'+cx+'" y2="'+cy+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
     }
-  }else{
+  } else {
+    // Multiple children (Drawing 3): vertical drop to bus bar, horizontal bus, drops to each child center-top
     var xs=kids.map(function(c){return pcx(c);});
     var topY=Math.min.apply(null,kids.map(function(c){return ptop(c);}));
-    var barY=Math.max(dy+20,topY-20);
+    var barY=Math.max(dy+22,topY-26);   // bus bar sits between union and children
     var bL=Math.min.apply(null,xs),bR=Math.max.apply(null,xs);
+    // Vertical from union point down to bus bar
     lines.push('<line x1="'+dx+'" y1="'+dy+'" x2="'+dx+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-    lines.push('<line x1="'+bL+'" y1="'+barY+'" x2="'+bR+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
-    kids.forEach(function(c){lines.push('<line x1="'+pcx(c)+'" y1="'+barY+'" x2="'+pcx(c)+'" y2="'+ptop(c)+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');});
+    // Horizontal bus bar spanning all children
+    lines.push('<line x1="'+Math.min(bL,dx)+'" y1="'+barY+'" x2="'+Math.max(bR,dx)+'" y2="'+barY+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    // Drop into each child's center-top
+    kids.forEach(function(c){
+      lines.push('<line x1="'+pcx(c)+'" y1="'+barY+'" x2="'+pcx(c)+'" y2="'+ptop(c)+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>');
+    });
   }
 }
 
@@ -1626,8 +1687,11 @@ function scrollToId(id){
 function centerView(){
   if(!S.ps.length)return;
   var tw=$('tree-wrap');
+  var hidden=getHiddenIds();
+  var vp=S.ps.filter(function(p){return !hidden[p.id];});
+  if(!vp.length)vp=S.ps;
   var minX=1e9,minY=1e9,maxX=0,maxY=0;
-  S.ps.forEach(function(p){minX=Math.min(minX,p.x||0);minY=Math.min(minY,p.y||0);maxX=Math.max(maxX,(p.x||0)+CW);maxY=Math.max(maxY,(p.y||0)+CBH);});
+  vp.forEach(function(p){minX=Math.min(minX,p.x||0);minY=Math.min(minY,p.y||0);maxX=Math.max(maxX,(p.x||0)+CW);maxY=Math.max(maxY,(p.y||0)+CBH);});
   tw.scrollLeft=Math.max(0,(minX+maxX)/2*S.zoom-tw.clientWidth/2);
   tw.scrollTop=Math.max(0,(minY+maxY)/2*S.zoom-tw.clientHeight/2);
 }
@@ -1764,7 +1828,8 @@ var LANGS={
     rel_spouse:'Cónyuge',rel_exspouse:'Ex-cónyuge',rel_unknown:'Familiar',
     no_relation:'Sin parentesco directo',relationship_with:'Parentesco con',
     match_title:'¡Coincidencia encontrada!',match_found:'coincidencia posible',
-    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente'},
+    search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente',
+    tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí'},
   en:{dir:'ltr',name:'English',
     rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
     rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
@@ -1774,7 +1839,8 @@ var LANGS={
     rel_spouse:'Spouse',rel_exspouse:'Ex-spouse',rel_unknown:'Relative',
     no_relation:'No direct relationship found',relationship_with:'Relationship with',
     match_title:'Match found!',match_found:'possible match',
-    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree'},
+    search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree',
+    tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here'},
   he:{dir:'rtl',name:'עברית',
     rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
     rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
@@ -1784,7 +1850,8 @@ var LANGS={
     rel_spouse:'בן/בת זוג',rel_exspouse:'גרוש/ה',rel_unknown:'קרוב משפחה',
     no_relation:'לא נמצאה קרבה',relationship_with:'קרבה עם',
     match_title:'נמצאה התאמה!',match_found:'התאמה אפשרית',
-    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית'}
+    search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית',
+    tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים'}
 };
 function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
 function setLang(lang){
@@ -1799,6 +1866,8 @@ function setLang(lang){
     // Update toolbar labels if app is showing
     updateToolbarLang();
   }
+  // Re-render tree so card tooltips/badges pick up the new language
+  if($('app')&&$('app').style.display!=='none'&&S.ps.length){renderAll();}
 }
 
 function setLangLogin(lang){
@@ -2128,6 +2197,41 @@ function autoReorganize(){
             ((r.f===p.id&&r.t===nxt.id)||(r.f===nxt.id&&r.t===p.id));
         });
         curX+=CW+(coupled?20:30);
+      }
+    });
+  });
+
+  // SECOND PASS: center each parent-couple over the midpoint of their children.
+  // Walk generations from the BOTTOM up so children are already placed.
+  var sortedLevels=levels.slice().sort(function(a,b){return b-a;}); // deepest (down) first
+  sortedLevels.forEach(function(level){
+    var people=byGen[level]||[];
+    var coupleDone={};
+    people.forEach(function(p){
+      // Find this person's children
+      var kids=S.rs.filter(function(r){return r.type==="parent"&&r.f===p.id;})
+        .map(function(r){return S.ps.find(function(x){return x.id===r.t;});}).filter(Boolean);
+      if(!kids.length)return;
+      // Find spouse (co-parent) at same level
+      var spRel=S.rs.find(function(r){return(r.type==="spouse"||r.type==="spouse-div")&&(r.f===p.id||r.t===p.id);});
+      var spId=spRel?(spRel.f===p.id?spRel.t:spRel.f):null;
+      var sp=spId?S.ps.find(function(x){return x.id===spId;}):null;
+      var pairKey=[p.id,spId].filter(Boolean).sort().join("|");
+      if(coupleDone[pairKey])return;
+      coupleDone[pairKey]=1;
+      // Children midpoint
+      var kxs=kids.map(function(c){return pcx(c);});
+      var kidMid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
+      if(sp){
+        // Keep gender convention: male left, female right
+        var male=(p.gender==='M')?p:(sp.gender==='M'?sp:p);
+        var female=(p===male)?sp:p;
+        // place couple centered on kidMid, 20px gap between them
+        male.x=kidMid-CW-10;
+        female.x=kidMid+10;
+        male.y=female.y=p.y;
+      } else {
+        p.x=kidMid-CW/2;
       }
     });
   });
