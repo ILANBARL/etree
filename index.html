@@ -808,39 +808,20 @@ function smartPos(relType,anchorId){
     var parentY=ay-GAP_V;
     if(parentY<50)parentY=50;
 
-    // Find spouse of anchor
-    var spouseRels=S.rs.filter(function(r){return(r.type==='spouse'||r.type==='spouse-div')&&(r.f===anchorId||r.t===anchorId);});
-    var spouseObj=null;
-    if(spouseRels.length>0){
-      var spId=spouseRels[0].f===anchorId?spouseRels[0].t:spouseRels[0].f;
-      spouseObj=S.ps.find(function(p){return p.id===spId;});
-    }
-
     if(existingParents.length>0){
-      // SECOND parent being added
+      // SECOND parent of the anchor being added.
+      // Place it next to the existing parent, on the correct gendered side.
+      // The couple will be re-centered over the anchor by centerChildrenOfCouple() after save.
       var ep=existingParents[0];
-      var newX=(ep.x||0)+CW+GAP_H;
+      var newX=(ep.x||0)+CW+GAP_H;  // tentative: to the right of existing parent
       var newY=ep.y||parentY;
-      // If spouse exists and our position would overlap their column
-      if(spouseObj){
-        var spouseX=spouseObj.x||0;
-        var spouseRight=spouseX+CW;
-        // Need 50px gap between our parent group and spouse
-        var needed=newX+CW+50;
-        if(needed>spouseX){
-          var shift=needed-spouseX;
-          // Move spouse + their parents + everyone to the right
-          S.ps.filter(function(p){
-            return p.id!==anchorId&&p.id!==ep.id&&(p.x||0)>=spouseX-10;
-          }).forEach(function(p){p.x=(p.x||0)+shift;});
-        }
-      }
       return{x:newX,y:newY};
     }
-    // FIRST parent being added - centered above anchor
-    // If spouse exists, place parent ABOVE the anchor (not above the couple)
-    var firstX=ax;
-    return{x:firstX,y:parentY};
+    // FIRST parent of the anchor being added.
+    // Center it directly above the anchor (single column). The second parent will
+    // arrive next to it and the pair gets centered over the anchor afterwards.
+    // IMPORTANT: do NOT move the anchor or its spouse (fixed identity).
+    return{x:ax,y:parentY};
   }
 
   if(relType==='child'||relType==='grandchild'){
@@ -1079,9 +1060,9 @@ function savePer(){
         if(S.selRel==='parent'){
           var existingP=S.rs.filter(function(r){return r.type==='parent'&&r.t===S.aid;}).map(function(r){return r.f;}).filter(function(id){return id!==np.id;});
           if(existingP.length){
-            // Auto-add spouse relation between the two parents.
-            // Positioning (gender order + centering child) handled by autoLayoutChildren() in renderAll.
+            // The two parents form a couple. Center the couple OVER the child (child stays fixed).
             addRel(np.id, existingP[0], 'spouse');
+            centerCoupleOverChild(np.id, existingP[0], S.aid);
             renderAll();autoSave();toast('Familiar agregado y conectado \u2713','ok');otherParentExists=true;
           }
         }else if(S.selRel==='child'){
@@ -1200,28 +1181,9 @@ function saveOP(){
   // Add SPOUSE relation between the two parents (so the couple line is drawn)
   if(parent1Id!==otherParentId)addRel(parent1Id,otherParentId,'spouse');
 
-  // DO NOT move any existing cards - only position the new parent correctly
+  // Center the parent couple OVER the child (the child/lower generation stays fixed)
   var par1obj=S.ps.find(function(p){return p.id===parent1Id;});
-  var par2obj=S.ps.find(function(p){return p.id===otherParentId;});
-
-  if(par1obj&&par2obj){
-    // Ensure par2 is at same Y as par1
-    par2obj.y=par1obj.y||0;
-    // Only adjust X if they overlap
-    if(Math.abs((par2obj.x||0)-(par1obj.x||0))<CW){
-      par2obj.x=(par1obj.x||0)+CW+GAP_H;
-    }
-    // GENDER CONVENTION: Male on LEFT, Female on RIGHT
-    if(par1obj.gender&&par2obj.gender&&par1obj.gender!==par2obj.gender){
-      var male2=par1obj.gender==='M'?par1obj:par2obj;
-      var female2=par1obj.gender==='F'?par1obj:par2obj;
-      if((male2.x||0)>(female2.x||0)){
-        var tmp=male2.x;
-        male2.x=female2.x;
-        female2.x=tmp;
-      }
-    }
-  }
+  centerCoupleOverChild(parent1Id,otherParentId,childId);
 
   $('opmo').style.display='none';
   document.body.style.overflow='';
@@ -1428,63 +1390,91 @@ function getHiddenIds(){
 // RENDER
 
 // Auto-position children under each couple: single child centered, multiple sorted oldest->youngest
-function autoLayoutChildren(){
-  // Build child->parents and detect couples with shared children
-  var childParents={};
-  S.rs.forEach(function(r){
-    var pid,cid;
-    if(r.type==='parent'){pid=r.f;cid=r.t;}
-    else if(r.type==='child'){pid=r.t;cid=r.f;}
-    else return;
-    if(!childParents[cid])childParents[cid]=[];
-    if(childParents[cid].indexOf(pid)<0)childParents[cid].push(pid);
-  });
-  var doneGroups={};
-  Object.keys(childParents).forEach(function(cid){
-    var parents=childParents[cid];
-    if(parents.length<2)return;
-    var parObjs=parents.map(function(pid){return S.ps.find(function(p){return p.id===pid;});}).filter(Boolean);
-    if(parObjs.length<2)return;
-    var groupKey=parents.slice().sort().join('|');
-    if(doneGroups[groupKey])return;
-    doneGroups[groupKey]=1;
+// Center a couple of parents OVER their (already-placed) child, without moving the child.
+// Used when grandparents/ancestors are added (Drawings 2 & 4): the lower generation is fixed.
+function centerCoupleOverChild(pid1,pid2,childId){
+  var p1=S.ps.find(function(p){return p.id===pid1;});
+  var p2=S.ps.find(function(p){return p.id===pid2;});
+  var child=S.ps.find(function(p){return p.id===childId;});
+  if(!p1||!p2||!child)return;
+  // Gender order: male left, female right
+  var left=p1,right=p2;
+  if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
+    left=p1.gender==='M'?p1:p2;
+    right=p1.gender==='M'?p2:p1;
+  }
+  // Same Y for the couple, exactly one generation above the child
+  var topY=(child.y||0)-GAP_V;
+  if(topY<50)topY=50;
+  // Center the pair so its midpoint sits over the child's center
+  var childMid=pcx(child);
+  // pair occupies: leftX .. leftX+CW (gap) rightX..rightX+CW ; midpoint = leftX+CW+GAP_H/2
+  var GAP=GAP_H;
+  var pairW=CW*2+GAP;
+  var leftX=childMid-pairW/2;
+  left.x=leftX; left.y=topY;
+  right.x=leftX+CW+GAP; right.y=topY;
 
-    // GENDER CONVENTION: male left, female right
-    parObjs.sort(function(a,b){return(a.x||0)-(b.x||0);});
-    var p1=parObjs[0],p2=parObjs[parObjs.length-1];
-    if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
-      var male=p1.gender==='M'?p1:p2;
-      var female=p1.gender==='F'?p1:p2;
-      if((male.x||0)>(female.x||0)){
-        var tx=male.x; male.x=female.x; female.x=tx;
+  // Collision avoidance: if this new couple overlaps any OTHER card already at the
+  // same generation row, shift ONLY this new couple away from the collision.
+  var pairIds=[left.id,right.id];
+  var others=S.ps.filter(function(p){
+    return pairIds.indexOf(p.id)<0 && Math.abs((p.y||0)-topY)<CBH*0.6;
+  });
+  if(others.length){
+    var guard=0;
+    function firstOverlap(){
+      var aL=Math.min(left.x,right.x), aR=Math.max(left.x,right.x)+CW;
+      for(var i=0;i<others.length;i++){
+        var o=others[i], bL=o.x||0, bR=(o.x||0)+CW;
+        if(aL< bR+20 && aR> bL-20)return o;
       }
-      parObjs.sort(function(a,b){return(a.x||0)-(b.x||0);});
-      p1=parObjs[0];p2=parObjs[parObjs.length-1];
+      return null;
     }
-    // Keep both parents on the same Y line
-    var topY=Math.min(p1.y||0,p2.y||0);
-    p1.y=p2.y=topY;
-
-    var midX=(pcx(p1)+pcx(p2))/2;
-
-    // Shared children of this couple
-    var kids=Object.keys(childParents).filter(function(kid){
-      return parents.every(function(pid){return childParents[kid]&&childParents[kid].indexOf(pid)>=0;});
-    }).map(function(kid){return S.ps.find(function(p){return p.id===kid;});}).filter(Boolean);
-    if(!kids.length)return;
-
-    kids.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-    var childY=topY+GAP_V;
-    if(kids.length===1){
-      kids[0].x=midX-CW/2;
-      kids[0].y=childY;
-    } else {
-      var SIB_SP=30;
-      var totalW=kids.length*CW+(kids.length-1)*SIB_SP;
-      var startX=midX-totalW/2;
-      kids.forEach(function(ch,i){ch.x=startX+i*(CW+SIB_SP);ch.y=childY;});
+    var o;
+    while((o=firstOverlap()) && guard++<80){
+      var aMid=(pcx(left)+pcx(right))/2;
+      var oMid=(o.x||0)+CW/2;
+      // Move away from the colliding card: if it's to our left, go right; else go left
+      var dir=aMid>=oMid?1:-1;
+      left.x+=dir*(CW+20);
+      right.x+=dir*(CW+20);
     }
+  }
+}
+
+
+// Used ONLY when a couple is newly formed (second parent added). Does NOT touch anyone else.
+function centerChildrenOfCouple(pid1,pid2){
+  var p1=S.ps.find(function(p){return p.id===pid1;});
+  var p2=S.ps.find(function(p){return p.id===pid2;});
+  if(!p1||!p2)return;
+  // Gender convention: male left, female right (only swap THIS couple)
+  if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
+    var male=p1.gender==='M'?p1:p2;
+    var female=p1.gender==='F'?p1:p2;
+    if((male.x||0)>(female.x||0)){var tx=male.x;male.x=female.x;female.x=tx;}
+  }
+  // Keep both on same Y
+  var topY=Math.min(p1.y||0,p2.y||0);
+  p1.y=p2.y=topY;
+  var midX=(pcx(p1)+pcx(p2))/2;
+  // Find shared children of EXACTLY this couple
+  var kids=S.ps.filter(function(c){
+    var pars=S.rs.filter(function(r){return r.type==='parent'&&r.t===c.id;}).map(function(r){return r.f;});
+    return pars.indexOf(pid1)>=0&&pars.indexOf(pid2)>=0;
   });
+  if(!kids.length)return;
+  kids.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
+  var childY=topY+GAP_V;
+  if(kids.length===1){
+    kids[0].x=midX-CW/2;kids[0].y=childY;
+  } else {
+    var SIB_SP=30;
+    var totalW=kids.length*CW+(kids.length-1)*SIB_SP;
+    var startX=midX-totalW/2;
+    kids.forEach(function(ch,i){ch.x=startX+i*(CW+SIB_SP);ch.y=childY;});
+  }
 }
 
 function renderAll(){
@@ -1494,9 +1484,6 @@ function renderAll(){
   var em=$('empty');
   if(!S.ps.length){em.classList.remove('hidden');$('tree-svg').innerHTML='';canvas.style.width=canvas.style.height='';$('stp').textContent='0';return;}
   em.classList.add('hidden');$('stp').textContent=S.ps.length;updLim();
-
-  // Auto-position children (centered/sorted) BEFORE drawing cards & lines
-  autoLayoutChildren();
 
   // Compute hidden set
   var hidden=getHiddenIds();
