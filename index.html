@@ -532,7 +532,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.0 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.1 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -2098,9 +2098,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 1.0 · Iniciado el 30 de abril de 2026',
-    en:'Version 1.0 · Started April 30, 2026',
-    he:'גרסה 1.0 · החל ב-30 באפריל 2026'
+    es:'Versión 1.1 · Iniciado el 30 de abril de 2026',
+    en:'Version 1.1 · Started April 30, 2026',
+    he:'גרסה 1.1 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
@@ -2118,186 +2118,116 @@ function openAbout(){
 }
 
 function autoReorganize(){
-  if(!S.ps.length){toast('No hay personas en el árbol','w');return;}
-  if(!confirm('Esto reorganizará todas las fichas según las relaciones familiares. ¿Continuar?'))return;
+  if(!S.ps.length){toast(LANG==='he'?'אין אנשים בעץ':LANG==='en'?'No people in tree':'No hay personas en el árbol','w');return;}
+  if(!confirm(LANG==='he'?'לארגן מחדש את כל הכרטיסים לפי קשרי משפחה?':LANG==='en'?'Reorganize all cards by family relationships?':'Esto reorganizará todas las fichas según las relaciones familiares. ¿Continuar?'))return;
 
-  // Step 1: BFS to assign generation levels from first person
-  var gen={};
-  var visited={};
-  var queue=[{id:S.ps[0].id, level:0}];
-  gen[S.ps[0].id]=0;
-  visited[S.ps[0].id]=true;
+  // ---- Build relationship maps ----
+  var childParents={}, parentChildren={};
+  S.rs.forEach(function(r){
+    if(r.type!=='parent')return;
+    if(!childParents[r.t])childParents[r.t]=[];
+    if(childParents[r.t].indexOf(r.f)<0)childParents[r.t].push(r.f);
+    if(!parentChildren[r.f])parentChildren[r.f]=[];
+    if(parentChildren[r.f].indexOf(r.t)<0)parentChildren[r.f].push(r.t);
+  });
+  function spouseOf(id){
+    var sr=S.rs.find(function(r){return (r.type==='spouse'||r.type==='spouse-div')&&(r.f===id||r.t===id);});
+    return sr?(sr.f===id?sr.t:sr.f):null;
+  }
 
+  // ---- Assign generations via BFS (parent = gen-1, child = gen+1, spouse/sibling = same) ----
+  var gen={}, visited={}, queue=[{id:S.ps[0].id,level:0}];
+  gen[S.ps[0].id]=0; visited[S.ps[0].id]=true;
   while(queue.length){
     var cur=queue.shift();
     S.rs.forEach(function(r){
       if(r.type==='parent'){
-        if(r.t===cur.id && !visited[r.f]){
-          gen[r.f]=cur.level-1; visited[r.f]=true;
-          queue.push({id:r.f, level:cur.level-1});
-        }
-        if(r.f===cur.id && !visited[r.t]){
-          gen[r.t]=cur.level+1; visited[r.t]=true;
-          queue.push({id:r.t, level:cur.level+1});
-        }
-      } else if(r.type==='spouse'||r.type==='spouse-div'){
-        var other=r.f===cur.id?r.t:r.f;
-        if((r.f===cur.id||r.t===cur.id) && !visited[other]){
-          gen[other]=cur.level; visited[other]=true;
-          queue.push({id:other, level:cur.level});
-        }
-      } else if(r.type==='sibling'){
-        var sib=r.f===cur.id?r.t:r.f;
-        if((r.f===cur.id||r.t===cur.id) && !visited[sib]){
-          gen[sib]=cur.level; visited[sib]=true;
-          queue.push({id:sib, level:cur.level});
-        }
+        if(r.t===cur.id&&!visited[r.f]){gen[r.f]=cur.level-1;visited[r.f]=true;queue.push({id:r.f,level:cur.level-1});}
+        if(r.f===cur.id&&!visited[r.t]){gen[r.t]=cur.level+1;visited[r.t]=true;queue.push({id:r.t,level:cur.level+1});}
+      }else if(r.type==='spouse'||r.type==='spouse-div'||r.type==='sibling'){
+        var o=r.f===cur.id?r.t:(r.t===cur.id?r.f:null);
+        if(o&&!visited[o]){gen[o]=cur.level;visited[o]=true;queue.push({id:o,level:cur.level});}
       }
     });
   }
   S.ps.forEach(function(p){if(gen[p.id]===undefined)gen[p.id]=0;});
 
-  // Step 2: Group by generation
+  // ---- Group by generation ----
   var byGen={};
-  S.ps.forEach(function(p){
-    var g=gen[p.id];
-    if(!byGen[g])byGen[g]=[];
-    byGen[g].push(p);
+  S.ps.forEach(function(p){(byGen[gen[p.id]]=byGen[gen[p.id]]||[]).push(p);});
+  var levels=Object.keys(byGen).map(Number).sort(function(a,b){return a-b;});
+  var deepest=levels[levels.length-1];
+
+  var GAPV=GAP_V, SIB_SP=30, COUPLE_GAP=GAP_H, baseY=2000, baseX=2000;
+
+  // ---- PASS 1: lay out the DEEPEST generation left-to-right by birth year ----
+  var bottom=byGen[deepest].slice().sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
+  // group couples adjacently
+  var ordered=[], placed={};
+  bottom.forEach(function(p){
+    if(placed[p.id])return;
+    ordered.push(p); placed[p.id]=true;
+    var sp=spouseOf(p.id);
+    if(sp){var spo=bottom.find(function(x){return x.id===sp;}); if(spo&&!placed[sp]){
+      // male left
+      if(p.gender==='F'&&spo.gender==='M'){ordered[ordered.length-1]=spo;ordered.push(p);}
+      else ordered.push(spo);
+      placed[sp]=true;
+    }}
+  });
+  var curX=baseX;
+  ordered.forEach(function(p,i){
+    p.x=curX; p.y=baseY+(deepest)*GAPV;
+    var nxt=ordered[i+1];
+    var coupled=nxt&&spouseOf(p.id)===nxt.id;
+    curX+=CW+(coupled?COUPLE_GAP:SIB_SP);
   });
 
-  // Step 3: Build family groups - keep siblings + their spouses adjacent
-  // For each level, group people whose parents are same/related
-  var levels=Object.keys(byGen).map(function(k){return parseInt(k);}).sort(function(a,b){return a-b;});
-  var baseY=2000;
-  var baseX=2000;
-
-  levels.forEach(function(level){
-    var people=byGen[level];
-    // Sort by birth year for chronological order
-    people.sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-
-    // Build ordered list - keep family clusters together
-    // Each cluster: siblings followed by their spouses (alternating sibling-spouse-sibling-spouse)
-    var ordered=[];
-    var placed={};
-
+  // ---- PASS 2: from deepest-1 up to top, center each couple/person over their children ----
+  for(var L=deepest-1; L>=levels[0]; L--){
+    var people=(byGen[L]||[]).slice();
+    var doneC={};
+    // sort by average child X so we place left-to-right
+    people.sort(function(a,b){
+      function avgChild(pp){var ks=parentChildren[pp.id]||[];if(!ks.length)return 1e9;var s=0,n=0;ks.forEach(function(k){var c=S.ps.find(function(x){return x.id===k;});if(c){s+=pcx(c);n++;}});return n?s/n:1e9;}
+      return avgChild(a)-avgChild(b);
+    });
     people.forEach(function(p){
-      if(placed[p.id])return;
-
-      // Check if p has parents in tree - find siblings (people with same parents)
-      var pParents=S.rs.filter(function(r){return r.type==="parent"&&r.t===p.id;}).map(function(r){return r.f;});
-      var siblings=[];
-      if(pParents.length>0){
-        people.forEach(function(pp){
-          if(pp.id===p.id||placed[pp.id])return;
-          var ppParents=S.rs.filter(function(r){return r.type==="parent"&&r.t===pp.id;}).map(function(r){return r.f;});
-          // Same parent set means siblings
-          if(ppParents.length>0&&ppParents.some(function(par){return pParents.indexOf(par)>=0;})){
-            siblings.push(pp);
-          }
-        });
-      }
-
-      // Order: p + all siblings, sorted by birth year, each followed by spouse
-      var cluster=[p].concat(siblings).sort(function(a,b){return getBirthYear(a)-getBirthYear(b);});
-      cluster.forEach(function(c){
-        if(placed[c.id])return;
-        ordered.push(c);
-        placed[c.id]=true;
-        // Add spouse RIGHT after this person
-        var spRel=S.rs.find(function(r){
-          return(r.type==="spouse"||r.type==="spouse-div")&&(r.f===c.id||r.t===c.id);
-        });
-        if(spRel){
-          var spId=spRel.f===c.id?spRel.t:spRel.f;
-          var spP=people.find(function(pp){return pp.id===spId;});
-          if(spP&&!placed[spId]){
-            // GENDER CONVENTION: Male first, Female second
-            if(c.gender==='F'&&spP.gender==='M'){
-              // Spouse is male - put male first, then current (female)
-              var idx=ordered.length-1;
-              ordered[idx]=spP; // replace current with spouse
-              ordered.push(c);  // append current after spouse
-            } else {
-              ordered.push(spP);
-            }
-            placed[spId]=true;
-          }
+      if(doneC[p.id])return;
+      var sp=spouseOf(p.id);
+      var kids=(parentChildren[p.id]||[]).map(function(k){return S.ps.find(function(x){return x.id===k;});}).filter(Boolean);
+      // include spouse's kids
+      if(sp){(parentChildren[sp]||[]).forEach(function(k){var c=S.ps.find(function(x){return x.id===k;});if(c&&kids.indexOf(c)<0)kids.push(c);});}
+      var y=baseY+L*GAPV;
+      if(kids.length){
+        var kxs=kids.map(function(c){return pcx(c);});
+        var mid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
+        if(sp){
+          var spo=S.ps.find(function(x){return x.id===sp;});
+          var male=(p.gender==='M')?p:(spo&&spo.gender==='M'?spo:p);
+          var female=(p===male)?spo:p;
+          if(male&&female){male.x=mid-CW-COUPLE_GAP/2;female.x=mid+COUPLE_GAP/2;male.y=female.y=y;doneC[male.id]=doneC[female.id]=1;}
+          else {p.x=mid-CW/2;p.y=y;doneC[p.id]=1;}
+        } else {
+          p.x=mid-CW/2;p.y=y;doneC[p.id]=1;
         }
-      });
-    });
-
-    // Place ordered people at this level
-    var levelY=baseY+(level*GAP_V);
-    var totalCount=ordered.length;
-    // Couples get 20px between them, others get 30px
-    var totalW=0;
-    for(var i=0;i<ordered.length;i++){
-      totalW+=CW;
-      if(i<ordered.length-1){
-        // Is current and next a couple?
-        var cur=ordered[i],nxt=ordered[i+1];
-        var coupled=S.rs.find(function(r){
-          return(r.type==="spouse"||r.type==="spouse-div")&&
-            ((r.f===cur.id&&r.t===nxt.id)||(r.f===nxt.id&&r.t===cur.id));
-        });
-        totalW+=coupled?20:30;
-      }
-    }
-    var startX=baseX-totalW/2;
-    var curX=startX;
-    ordered.forEach(function(p,i){
-      p.x=curX;
-      p.y=levelY;
-      if(i<ordered.length-1){
-        var nxt=ordered[i+1];
-        var coupled=S.rs.find(function(r){
-          return(r.type==="spouse"||r.type==="spouse-div")&&
-            ((r.f===p.id&&r.t===nxt.id)||(r.f===nxt.id&&r.t===p.id));
-        });
-        curX+=CW+(coupled?20:30);
-      }
-    });
-  });
-
-  // SECOND PASS: center each parent-couple over the midpoint of their children.
-  // Walk generations from the BOTTOM up so children are already placed.
-  var sortedLevels=levels.slice().sort(function(a,b){return b-a;}); // deepest (down) first
-  sortedLevels.forEach(function(level){
-    var people=byGen[level]||[];
-    var coupleDone={};
-    people.forEach(function(p){
-      // Find this person's children
-      var kids=S.rs.filter(function(r){return r.type==="parent"&&r.f===p.id;})
-        .map(function(r){return S.ps.find(function(x){return x.id===r.t;});}).filter(Boolean);
-      if(!kids.length)return;
-      // Find spouse (co-parent) at same level
-      var spRel=S.rs.find(function(r){return(r.type==="spouse"||r.type==="spouse-div")&&(r.f===p.id||r.t===p.id);});
-      var spId=spRel?(spRel.f===p.id?spRel.t:spRel.f):null;
-      var sp=spId?S.ps.find(function(x){return x.id===spId;}):null;
-      var pairKey=[p.id,spId].filter(Boolean).sort().join("|");
-      if(coupleDone[pairKey])return;
-      coupleDone[pairKey]=1;
-      // Children midpoint
-      var kxs=kids.map(function(c){return pcx(c);});
-      var kidMid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
-      if(sp){
-        // Keep gender convention: male left, female right
-        var male=(p.gender==='M')?p:(sp.gender==='M'?sp:p);
-        var female=(p===male)?sp:p;
-        // place couple centered on kidMid, 20px gap between them
-        male.x=kidMid-CW-10;
-        female.x=kidMid+10;
-        male.y=female.y=p.y;
       } else {
-        p.x=kidMid-CW/2;
+        // no children: just keep on its row, will be spaced later
+        p.y=y; doneC[p.id]=1;
       }
     });
-  });
+    // resolve horizontal overlaps within this level (push right, keep order)
+    var row=(byGen[L]||[]).slice().sort(function(a,b){return (a.x||0)-(b.x||0);});
+    for(var i=1;i<row.length;i++){
+      var prev=row[i-1], cur2=row[i];
+      var minX=(prev.x||0)+CW+SIB_SP;
+      if((cur2.x||0)<minX) cur2.x=minX;
+    }
+  }
 
   renderAll();
   autoSave();
-  toast("Árbol reorganizado ✓","ok");
+  toast(LANG==='he'?'העץ אורגן מחדש ✓':LANG==='en'?'Tree reorganized ✓':'Árbol reorganizado ✓','ok');
   setTimeout(function(){centerView();},300);
 }
 
