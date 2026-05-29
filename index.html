@@ -151,7 +151,7 @@ html{height:100%}
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
-    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v1.7</span>
+    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v1.8</span>
     <div style="margin-left:auto;font-size:11px;color:#7a7268;display:flex;align-items:center;gap:5px;padding:3px 8px;background:#f7f3ee;border-radius:16px;border:1px solid #d4cfc8;flex-shrink:0">
       <span style="width:6px;height:6px;border-radius:50%;background:#5a7a5a;display:inline-block" id="sdot"></span>
       <span id="stx">Listo</span>
@@ -548,7 +548,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.7 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.8 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -1302,72 +1302,93 @@ function layoutSiblingGroup(memberId){
     var pp=parentsOf(p.id);
     return pp.some(function(id){return refParents.indexOf(id)>=0;});
   }).map(function(p){return p.id;});
-  if(!sibs.length)return;
-  // Order siblings by birth year (oldest left). Spouses are NOT part of this ordering.
-  var ordered=orderSiblingsByAge(sibs);
+  if(sibs.length<2)return; // nothing to arrange if only one sibling
 
-  // Determine the row Y (use the existing row of the first sibling that has a position)
-  var rowY=null;
-  ordered.forEach(function(id){var p=S.ps.find(function(x){return x.id===id;});if(p&&rowY===null&&p.y)rowY=p.y;});
-  if(rowY===null){
-    // place one generation below the parents
-    var par=S.ps.find(function(p){return p.id===refParents[0];});
-    rowY=(par&&par.y!=null?par.y:0)+GAP_V;
+  // Find the "anchor" sibling: the one who is married into the central couple
+  // (i.e. has a spouse that is NOT a sibling in this group). That couple stays fixed;
+  // the other siblings (uncles/aunts) are placed on the OUTER side.
+  var anchorId=null, anchorSpouse=null;
+  sibs.forEach(function(sid){
+    var sp=spouseIdOf(sid);
+    if(sp && sibs.indexOf(sp)<0){ anchorId=sid; anchorSpouse=sp; }
+  });
+  // If no married anchor (no one in this group has an external spouse), fall back to
+  // simple centered layout under the parents.
+  if(!anchorId){
+    layoutSiblingGroupCentered(memberId,sibs,refParents);
+    return;
   }
 
-  // Build UNITS: each sibling is a unit (with its spouse attached on the correct side).
-  // A unit moves as a block (sibling + spouse + all descendants) so structure is kept.
-  var units=[]; // {members:[ids in left-to-right order], leadId:sibId}
+  var anchor=S.ps.find(function(p){return p.id===anchorId;});
+  var spouse=S.ps.find(function(p){return p.id===anchorSpouse;});
+  var rowY=anchor.y||0;
+
+  // Which side are the uncles on? Opposite to the anchor's spouse.
+  // If spouse is to the RIGHT of anchor -> uncles go LEFT (and vice versa).
+  var unclesGoLeft=(spouse.x||0)>(anchor.x||0);
+
+  // Order the OTHER siblings (uncles) by birth year. Within the row, the whole
+  // sibling set is ordered oldest->left; but we keep the anchor fixed and place
+  // uncles outward in age order so the visual order stays correct.
+  var uncles=sibs.filter(function(id){return id!==anchorId;});
+  // Sort uncles by age (oldest first)
+  uncles=orderSiblingsByAge(uncles);
+
+  // Place uncles outward from the anchor.
+  if(unclesGoLeft){
+    // Uncles to the LEFT of anchor, oldest furthest left.
+    // The sequence left->right should be: [oldest uncle ... youngest uncle] [anchor]
+    // So we lay them ending just left of the anchor.
+    var rightEdge=(anchor.x||0)-SIB_GAP; // right edge of the uncle block (just left of anchor)
+    // place from the one nearest the anchor (youngest) going left
+    for(var i=uncles.length-1;i>=0;i--){
+      var u=S.ps.find(function(p){return p.id===uncles[i];});
+      var ux=rightEdge-CW;
+      var dx=ux-(u.x||0);
+      moveMemberAndSubtree(uncles[i],dx);
+      u.y=rowY;
+      rightEdge=ux-SIB_GAP;
+    }
+  } else {
+    // Uncles to the RIGHT of the anchor (anchor's spouse is on the anchor's LEFT).
+    // sequence: [spouse][anchor] [uncle oldest ... youngest]
+    var leftEdge=(anchor.x||0)+CW+SIB_GAP;
+    for(var j=0;j<uncles.length;j++){
+      var u2=S.ps.find(function(p){return p.id===uncles[j];});
+      var ux2=leftEdge;
+      var dx2=ux2-(u2.x||0);
+      moveMemberAndSubtree(uncles[j],dx2);
+      u2.y=rowY;
+      leftEdge=ux2+CW+SIB_GAP;
+    }
+  }
+}
+
+// Simple centered layout used when no sibling in the group is married into a central couple.
+function layoutSiblingGroupCentered(memberId,sibs,refParents){
+  var ordered=orderSiblingsByAge(sibs);
+  var rowY=null;
+  ordered.forEach(function(id){var p=S.ps.find(function(x){return x.id===id;});if(p&&rowY===null&&p.y)rowY=p.y;});
+  if(rowY===null){var par=S.ps.find(function(p){return p.id===refParents[0];});rowY=(par&&par.y!=null?par.y:0)+GAP_V;}
+  var units=[];
   ordered.forEach(function(sid){
     var sibP=S.ps.find(function(p){return p.id===sid;});
     var sp=spouseIdOf(sid);
     var spP=sp?S.ps.find(function(p){return p.id===sp;}):null;
     var members;
     if(spP && ordered.indexOf(sp)<0){
-      // married: male left, female right
-      if(sibP.gender==='F'&&spP.gender==='M')members=[sp,sid];
-      else members=[sid,sp];
-    } else {
-      members=[sid];
-    }
-    units.push({members:members,leadId:sid,married:(members.length===2)});
+      if(sibP.gender==='F'&&spP.gender==='M')members=[sp,sid];else members=[sid,sp];
+    } else members=[sid];
+    units.push({members:members});
   });
-
-  // Width of each unit and total width (couple gap 20 inside unit; sibling gap 30 between units)
-  function unitWidth(u){ return u.members.length*CW + (u.members.length-1)*SPOUSE_GAP; }
-  var totalW=0;
-  units.forEach(function(u,i){ totalW+=unitWidth(u); if(i<units.length-1)totalW+=SIB_GAP; });
-
-  // Parents' midpoint = where the sibling group must be centered
+  function unitWidth(u){return u.members.length*CW+(u.members.length-1)*SPOUSE_GAP;}
+  var totalW=0;units.forEach(function(u,i){totalW+=unitWidth(u);if(i<units.length-1)totalW+=SIB_GAP;});
   var parObjs=refParents.map(function(id){return S.ps.find(function(p){return p.id===id;});}).filter(Boolean);
   var pxs=parObjs.map(function(p){return pcx(p);});
   var parentMid=pxs.length?((Math.min.apply(null,pxs)+Math.max.apply(null,pxs))/2):pcx(S.ps.find(function(p){return p.id===memberId;}));
-
-  // Place each unit. Within a unit: member0 at curX, member1 at curX+CW+20 (spouse gap).
-  // Move shared descendants by the unit's average shift so they stay centered under the couple.
   var curX=parentMid-totalW/2;
-  units.forEach(function(u,i){
-    var oldPositions=u.members.map(function(mid){var p=S.ps.find(function(x){return x.id===mid;});return p?(p.x||0):0;});
-    var newPositions=[];
-    var mx=curX;
-    u.members.forEach(function(mid,k){ newPositions.push(mx); mx+=CW+SPOUSE_GAP; });
-    // Average shift of the couple (used to move shared descendants once)
-    var avgOld=oldPositions.reduce(function(a,b){return a+b;},0)/oldPositions.length;
-    var avgNew=newPositions.reduce(function(a,b){return a+b;},0)/newPositions.length;
-    var dxDesc=avgNew-avgOld;
-    // 1) Move shared descendants (children of the unit) by dxDesc, once.
-    var descSet={};
-    u.members.forEach(function(mid){
-      childrenOf(mid).forEach(function(c){
-        if(descSet[c])return;
-        // collect this child's whole subtree
-        var q=[c]; descSet[c]=true;
-        while(q.length){var cur=q.shift();childrenOf(cur).forEach(function(cc){if(!descSet[cc]){descSet[cc]=true;q.push(cc);var cs=spouseIdOf(cc);if(cs&&!descSet[cs]){descSet[cs]=true;q.push(cs);}}});}
-      });
-    });
-    Object.keys(descSet).forEach(function(id){var p=S.ps.find(function(x){return x.id===id;});if(p)p.x=(p.x||0)+dxDesc;});
-    // 2) Set member positions exactly.
-    u.members.forEach(function(mid,k){var p=S.ps.find(function(x){return x.id===mid;});if(p){p.x=newPositions[k];p.y=rowY;}});
+  units.forEach(function(u){
+    u.members.forEach(function(mid,k){var p=S.ps.find(function(x){return x.id===mid;});if(p){p.x=curX+k*(CW+SPOUSE_GAP);p.y=rowY;}});
     curX+=unitWidth(u)+SIB_GAP;
   });
 }
@@ -2449,9 +2470,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 1.7 · Iniciado el 30 de abril de 2026',
-    en:'Version 1.7 · Started April 30, 2026',
-    he:'גרסה 1.7 · החל ב-30 באפריל 2026'
+    es:'Versión 1.8 · Iniciado el 30 de abril de 2026',
+    en:'Version 1.8 · Started April 30, 2026',
+    he:'גרסה 1.8 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
@@ -2754,7 +2775,7 @@ document.addEventListener('touchend',function(){if(MD.active){MD.active=false;au
 
 // INIT
 window.addEventListener('load',function(){
-  console.log('%cE-TREE versión 1.7 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
+  console.log('%cE-TREE versión 1.8 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
   var params=new URLSearchParams(window.location.search);
   if(params.get('share')){
     S.ro=true;S.user={name:'Visitante',email:'guest',photo:'',initial:'V',guest:true};
