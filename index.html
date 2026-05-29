@@ -151,7 +151,7 @@ html{height:100%}
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
-    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v1.9</span>
+    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v2.0</span>
     <div style="margin-left:auto;font-size:11px;color:#7a7268;display:flex;align-items:center;gap:5px;padding:3px 8px;background:#f7f3ee;border-radius:16px;border:1px solid #d4cfc8;flex-shrink:0">
       <span style="width:6px;height:6px;border-radius:50%;background:#5a7a5a;display:inline-block" id="sdot"></span>
       <span id="stx">Listo</span>
@@ -548,7 +548,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 1.9 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 2.0 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -1275,14 +1275,15 @@ function saveSibParents(){
     var females=linkedParents.filter(function(p){return p.gender==="F";});
     var pa=males[0]||linkedParents[0];
     var pb=females[0]||linkedParents[1];
-    if(pa&&pb&&pa.id!==pb.id) centerCoupleOverChild(pa.id,pb.id,SIB.refId);
+    // Use the LIGHT recenter: move grandparents over their kids WITHOUT moving the parents row.
+    if(pa&&pb&&pa.id!==pb.id) recenterCoupleOverChildrenOnly(pa.id,pb.id);
   }
   try{
     var refP=S.ps.find(function(p){return p.id===SIB.refId;});
     if(refP){
       var rowY=refP.y||0;
       var fila=S.ps.filter(function(p){return Math.abs((p.y||0)-rowY)<80;}).sort(function(a,b){return(a.x||0)-(b.x||0);});
-      console.log("%c=== DEBUG ORDEN FILA (v1.9) ===","color:#c4a35a;font-weight:bold");
+      console.log("%c=== DEBUG ORDEN FILA (v2.0) ===","color:#c4a35a;font-weight:bold");
       fila.forEach(function(p){
         var pars=parentsOf(p.id).map(function(id){var pp=S.ps.find(function(x){return x.id===id;});return pp?pp.first:id;}).join("+");
         var sp=spouseIdOf(p.id);var spN=sp?(S.ps.find(function(x){return x.id===sp;})||{}).first:"-";
@@ -1746,6 +1747,31 @@ function centerCoupleOverChild(pid1,pid2,childId){
 
 // Ensure each child (that will receive a grandparent-couple above it) has enough
 // horizontal spacing from its siblings so two grandparent couples don't overlap.
+// Re-center a grandparent couple over the midpoint of ALL their children,
+// WITHOUT moving the children (used when adding uncles/aunts).
+function recenterCoupleOverChildrenOnly(pid1,pid2){
+  var p1=S.ps.find(function(p){return p.id===pid1;});
+  var p2=S.ps.find(function(p){return p.id===pid2;});
+  if(!p1||!p2)return;
+  var left=p1,right=p2;
+  if(p1.gender&&p2.gender&&p1.gender!==p2.gender){
+    left=p1.gender==='M'?p1:p2; right=p1.gender==='M'?p2:p1;
+  }
+  var kids=S.ps.filter(function(c){
+    var pars=parentsOf(c.id);
+    return pars.indexOf(pid1)>=0&&pars.indexOf(pid2)>=0;
+  });
+  if(!kids.length)return;
+  var kxs=kids.map(function(c){return pcx(c);});
+  var mid=(Math.min.apply(null,kxs)+Math.max.apply(null,kxs))/2;
+  var topY=Math.min.apply(null,kids.map(function(c){return c.y||0;}))-GAP_V;
+  if(topY<50)topY=50;
+  var pairW=CW*2+GAP_H;
+  var leftX=mid-pairW/2;
+  left.x=leftX; left.y=topY;
+  right.x=leftX+CW+GAP_H; right.y=topY;
+}
+
 function ensureRoomAboveChildren(kids){
   if(kids.length!==1)return; // only the single-child case needs the parent-spread logic
   var child=kids[0];
@@ -2483,9 +2509,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 1.9 · Iniciado el 30 de abril de 2026',
-    en:'Version 1.9 · Started April 30, 2026',
-    he:'גרסה 1.9 · החל ב-30 באפריל 2026'
+    es:'Versión 2.0 · Iniciado el 30 de abril de 2026',
+    en:'Version 2.0 · Started April 30, 2026',
+    he:'גרסה 2.0 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
@@ -2788,7 +2814,7 @@ document.addEventListener('touchend',function(){if(MD.active){MD.active=false;au
 
 // INIT
 window.addEventListener('load',function(){
-  console.log('%cE-TREE versión 1.9 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
+  console.log('%cE-TREE versión 2.0 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
   var params=new URLSearchParams(window.location.search);
   if(params.get('share')){
     S.ro=true;S.user={name:'Visitante',email:'guest',photo:'',initial:'V',guest:true};
