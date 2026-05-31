@@ -151,7 +151,7 @@ html{height:100%}
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
-    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v2.3</span>
+    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v2.4</span>
     <div style="margin-left:auto;font-size:11px;color:#7a7268;display:flex;align-items:center;gap:5px;padding:3px 8px;background:#f7f3ee;border-radius:16px;border:1px solid #d4cfc8;flex-shrink:0">
       <span style="width:6px;height:6px;border-radius:50%;background:#5a7a5a;display:inline-block" id="sdot"></span>
       <span id="stx">Listo</span>
@@ -201,11 +201,11 @@ html{height:100%}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div onclick="openNewPerson()" style="padding:16px 10px;border:1.5px solid #d4cfc8;border-radius:10px;text-align:center;cursor:pointer;background:white">
           <div style="font-size:24px;margin-bottom:6px">&#128100;</div>
-          <div style="font-size:13px;font-weight:500">Persona nueva</div>
+          <div style="font-size:13px;font-weight:500" data-i18n="new_person_opt">Persona nueva</div>
         </div>
         <div onclick="openConnectExist()" style="padding:16px 10px;border:1.5px solid #d4cfc8;border-radius:10px;text-align:center;cursor:pointer;background:white">
           <div style="font-size:24px;margin-bottom:6px">&#128279;</div>
-          <div style="font-size:13px;font-weight:500">Conectar existente</div>
+          <div style="font-size:13px;font-weight:500" data-i18n="connect_existing">Conectar existente</div>
         </div>
       </div>
     </div>
@@ -560,7 +560,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 2.3 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 2.4 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -712,7 +712,7 @@ function doLogin() {
   $('login').style.display='none';
   if(fbDb){loadData();}else{loadLocal();}
   showApp();
-  toast('Bienvenido, '+name+(val===ADMIN?' \u2014 acceso ilimitado \u221e':'')+'!','ok');
+  toast(T('ts_welcome')+', '+name+(val===ADMIN?' \u2014 '+T('ts_unlimited')+' \u221e':'')+'!','ok');
 }
 
 function doGuest(){
@@ -720,7 +720,7 @@ function doGuest(){
   $('login').style.display='none';
   loadLocal();
   showApp();
-  toast('Modo visitante','w');
+  toast(T('ts_guest'),'w');
 }
 
 function doLogout(){
@@ -802,13 +802,13 @@ function autoSave(){
   _saveCount++;
   if(_saveReset)clearTimeout(_saveReset);
   _saveReset=setTimeout(function(){_saveCount=0;},60000);
-  if(_saveCount>30){toast('Guardado pausado - demasiadas operaciones','w');return;}
+  if(_saveCount>30){toast(T('ts_save_paused'),'w');return;}
   S.tmr=setTimeout(function(){saveData();},2500);
 }
 function setSI(st){
   var dot=$('sdot'),tx=$('stx');if(!dot||!tx)return;
-  if(st==='saving'){dot.style.background='#c4a35a';tx.textContent='Guardando...';}
-  else{dot.style.background='#5a7a5a';tx.textContent='Guardado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});}
+  if(st==='saving'){dot.style.background='#c4a35a';tx.textContent=T('st_saving');}
+  else{dot.style.background='#5a7a5a';tx.textContent=T('st_saved')+' '+new Date().toLocaleTimeString(LANG==='he'?'he-IL':LANG==='en'?'en-US':'es-ES',{hour:'2-digit',minute:'2-digit'});}
 }
 
 // NORMALIZE
@@ -913,27 +913,28 @@ function smartPos(relType,anchorId){
 
 // ADD MENU
 function openAddMenu(aid){
-  if(S.ro){toast('Modo solo lectura','w');return;}
+  if(S.ro){toast(T('ts_readonly'),'w');return;}
   var lim=getLimit();
   if(S.ps.length>=lim){
-    toast(lim===0?'Crea una cuenta para agregar':'L\u00edmite de '+lim+' personas. Actualiza tu plan.','w');
+    toast(lim===0?T('ts_create_acc'):T('ts_limit'),'w');
     if(lim>0)openModal('addmenu');
     return;
   }
   S.aid=aid;
   var a=aid?S.ps.find(function(p){return p.id===aid;}):null;
-  $('add-title').textContent=a?'Agregar a '+a.first+' '+a.last:'Agregar persona';
+  $('add-title').textContent=a?(T('add_to')+' '+a.first+' '+a.last):T('add_person');
   openModal('addmenu');
 }
 
 function openNewPerson(){
   closeModal('addmenu');
   S.eid=null;S.selRel=null;S.selPhoto=null;
-  $('pmo-title').textContent=T('m_new_person');
   clrForm();
+  $('pmo-title').textContent=T('m_new_person');
   if(S.aid){var a=S.ps.find(function(p){return p.id===S.aid;});if(a){$('rls').style.display='block';$('rln').textContent=a.first+' '+a.last;}}
   else{$('rls').style.display='none';}
   openModal('pmo');
+  applyI18n($('pmo')); // ensure the form is translated to the current language
 }
 
 function closePmo(){closeModal('pmo');}
@@ -963,10 +964,10 @@ function selConn(id,name){S.connSelId=id;$('cres').style.display='none';$('csrch
 function clearCSel(){S.connSelId=null;$('csel').style.display='none';}
 function pickCR(el){document.querySelectorAll('#connmo .rel-btn').forEach(function(b){b.classList.remove('sel');});el.classList.add('sel');S.connSelRel=el.getAttribute('data-r');}
 function saveConn(){
-  if(!S.connSelId||!S.connSelRel){toast('Selecciona persona y relaci\u00f3n','w');return;}
-  if(!S.aid){toast('Sin persona de referencia','w');return;}
+  if(!S.connSelId||!S.connSelRel){toast(T('ts_sel_person_rel'),'w');return;}
+  if(!S.aid){toast(T('ts_no_ref'),'w');return;}
   addRel(S.aid,S.connSelId,S.connSelRel);
-  closeModal('connmo');renderAll();autoSave();toast('Conectado \u2713','ok');
+  closeModal('connmo');renderAll();autoSave();toast(T('ts_connected')+' \u2713','ok');
 }
 
 // PERSON FORM
@@ -974,7 +975,7 @@ function clrForm(){
   ['fn','fl','fnick','fheb','fbd','fbp','fdd','fdp','fno'].forEach(function(id){var e=$(id);if(e)e.value='';});
   $('fg2').value='';$('fdc').checked=false;
   $('dec-row').classList.remove('on');$('daf').classList.remove('show');
-  $('pha').innerHTML='<p>&#128247; Foto (opcional)</p>';
+  $('pha').innerHTML='<p data-i18n="m_photo">'+T('m_photo')+'</p>';
   S.selPhoto=null;
   document.querySelectorAll('#pmo .rel-btn').forEach(function(b){b.classList.remove('sel');});
   S.selRel=null;$('rls').style.display='none';
@@ -999,7 +1000,7 @@ function togDec(){
 function hPhoto(e){
   var f=e.target.files[0];if(!f)return;
   // Max 2MB photo
-  if(f.size>2*1024*1024){toast('Foto demasiado grande. Máximo 2MB','w');return;}
+  if(f.size>2*1024*1024){toast(T('ts_photo_big'),'w');return;}
   var r=new FileReader();
   r.onload=function(ev){
     // Resize to max 300x300 before storing
@@ -1025,7 +1026,7 @@ function pickR(el){document.querySelectorAll('#pmo .rel-btn').forEach(function(b
 function openEdit(id){
   var p=S.ps.find(function(x){return x.id===id;});if(!p)return;
   S.eid=id;S.aid=null;S.selPhoto=p.photo||null;
-  $('pmo-title').textContent='Editar Persona';
+  $('pmo-title').textContent=T('edit_person');
   var m={fn:'first',fl:'last',fnick:'nick',fheb:'heb',fg2:'gender',fbd:'bdate',fbp:'bplace',fdd:'ddate',fdp:'dplace',fno:'notes'};
   Object.keys(m).forEach(function(k){var e=$(k);if(e)e.value=p[m[k]]||'';});
   $('fdc').checked=!!p.deceased;
@@ -1041,8 +1042,8 @@ function savePer(){
   var first=$('fn').value.trim().substring(0,100),last=$('fl').value.trim().substring(0,100);
   // Basic XSS prevention
   first=first.replace(/[<>]/g,'');last=last.replace(/[<>]/g,'');
-  if(!first){toast('El nombre es obligatorio','w');$('fn').focus();return;}
-  if(!last){toast('El apellido es obligatorio','w');$('fl').focus();return;}
+  if(!first){toast(T('ts_name_req'),'w');$('fn').focus();return;}
+  if(!last){toast(T('ts_last_req'),'w');$('fl').focus();return;}
   var notes=$('fno').value.trim().substring(0,500).replace(/[<>]/g,'');
   var data={first:first,last:last,gender:$('fg2').value,bdate:$('fbd').value,
     bplace:$('fbp').value.trim(),deceased:$('fdc').checked,ddate:$('fdd').value,
@@ -1051,7 +1052,7 @@ function savePer(){
   if(S.eid){
     var i=S.ps.findIndex(function(p){return p.id===S.eid;});
     if(i>=0)S.ps[i]=Object.assign(S.ps[i],data);
-    toast('Actualizado \u2713','ok');
+    toast(T('ts_updated')+' \u2713','ok');
     closeModal('pmo');closeDet();renderAll();autoSave();
   }else{
     var pos=smartPos(S.selRel,S.aid);
@@ -1091,16 +1092,16 @@ function savePer(){
             // The two parents form a couple. Center the couple OVER the child (child stays fixed).
             addRel(np.id, existingP[0], 'spouse');
             centerCoupleOverChild(np.id, existingP[0], S.aid);
-            renderAll();autoSave();toast('Familiar agregado y conectado \u2713','ok');otherParentExists=true;
+            renderAll();autoSave();toast(T('ts_rel_added_conn')+' \u2713','ok');otherParentExists=true;
           }
         }else if(S.selRel==='child'){
           var spouseRel=S.rs.find(function(r){return r.type==='spouse'&&(r.f===S.aid||r.t===S.aid);});
-          if(spouseRel){var spouseId=spouseRel.f===S.aid?spouseRel.t:spouseRel.f;addRel(spouseId,np.id,'parent');renderAll();autoSave();toast('Familiar agregado \u2713','ok');otherParentExists=true;}
+          if(spouseRel){var spouseId=spouseRel.f===S.aid?spouseRel.t:spouseRel.f;addRel(spouseId,np.id,'parent');renderAll();autoSave();toast(T('ts_rel_added')+' \u2713','ok');otherParentExists=true;}
         }
         if(!otherParentExists){setTimeout(function(){showOtherParent(np.id,S.selRel,S.aid);},350);}
-      }else{toast('Familiar agregado \u2713','ok');}
+      }else{toast(T('ts_rel_added')+' \u2713','ok');}
     }else{
-      toast('Persona agregada \u2713','ok');
+      toast(T('ts_person_added')+' \u2713','ok');
       var newId=np.id;
       closeModal('pmo');closeDet();renderAll();autoSave();
       setTimeout(function(){scrollToId(newId);},400);
@@ -1164,7 +1165,7 @@ function saveOP(){
     }
   } else {
     var first=$('op-fn').value.trim(),last=$('op-fl').value.trim();
-    if(!first||!last){toast('Escribe nombre y apellido','w');$('op-fn').focus();return;}
+    if(!first||!last){toast(T('ts_write_namelast'),'w');$('op-fn').focus();return;}
 
     // Get anchor parent position
     var anchorPar=S.ps.find(function(p){return p.id===S.opAnchorId;});
@@ -1220,7 +1221,7 @@ function saveOP(){
   setTimeout(function(){
     if(par1obj) scrollToId(parent1Id);
   },400);
-  toast('Familia conectada ✓','ok');
+  toast(T('ts_family_conn')+' \u2713','ok');
 }
 
 function skipOtherParent(){
@@ -1236,7 +1237,7 @@ function deleteChild(){
     S.ps=S.ps.filter(function(p){return p.id!==S.opChildId;});
     S.rs=S.rs.filter(function(r){return r.f!==S.opChildId&&r.t!==S.opChildId;});
     $('opmo').style.display='none';document.body.style.overflow='';
-    renderAll();autoSave();toast('Eliminado','ok');
+    renderAll();autoSave();toast(T('ts_deleted'),'ok');
   }
 }
 
@@ -1265,7 +1266,7 @@ function setSibOption(opt){
 }
 
 function saveSibParents(){
-  if(!SIB.option){toast('Selecciona una opci\u00f3n','w');return;}
+  if(!SIB.option){toast(T('ts_sel_option'),'w');return;}
   var ref=S.ps.find(function(p){return p.id===SIB.refId;});
   if(!ref){closeSibModal();return;}
   var refParents=S.rs.filter(function(r){return r.type==='parent'&&r.t===SIB.refId;})
@@ -1290,7 +1291,7 @@ function saveSibParents(){
     // Use the LIGHT recenter: move grandparents over their kids WITHOUT moving the parents row.
     if(pa&&pb&&pa.id!==pb.id) recenterCoupleOverChildrenOnly(pa.id,pb.id);
   }
-  closeSibModal();renderAll();autoSave();toast('Hermano/a conectado \u2713','ok');
+  closeSibModal();renderAll();autoSave();toast(T('ts_sib_conn')+' \u2713','ok');
 }
 
 function positionSibling(sibId,refId,parents){
@@ -1462,7 +1463,7 @@ function confirmDel(id){
   $('del-ok').onclick=function(){
     S.ps=S.ps.filter(function(x){return x.id!==id;});
     S.rs=S.rs.filter(function(r){return r.f!==id&&r.t!==id;});
-    closeModal('delmo');closeDet();renderAll();autoSave();toast('Eliminado','ok');
+    closeModal('delmo');closeDet();renderAll();autoSave();toast(T('ts_deleted'),'ok');
   };
   openModal('delmo');
 }
@@ -2217,7 +2218,7 @@ function reorderAll(){
     var startX=parCenterX-totalW/2;
     allCh.forEach(function(ch,i){ch.x=startX+i*(CW+30);ch.y=childY;});
   });
-  renderAll();autoSave();toast('Orden por nacimiento \u2713','ok');
+  renderAll();autoSave();toast(T('ts_order_birth')+' \u2713','ok');
 }
 function fitView(){
   if(!S.ps.length){S.zoom=1;apZ();return;}
@@ -2244,8 +2245,8 @@ function openShare(){
 }
 function copyLink(){
   var txt=$('share-url').textContent;
-  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast('Copiado \u2713','ok');});}
-  else{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copiado \u2713','ok');}
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast(T('ts_copied')+' \u2713','ok');});}
+  else{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast(T('ts_copied')+' \u2713','ok');}
 }
 
 // STATS
@@ -2273,15 +2274,15 @@ function toggleSearch(){
   if(searchOpen){
     var q=prompt('Buscar persona por nombre:');
     if(q){var res=S.ps.filter(function(p){return(p.first+' '+p.last).toLowerCase().indexOf(q.toLowerCase())>=0;});
-      if(res.length){showDet(res[0].id);toast('Encontrado: '+res[0].first+' '+res[0].last,'ok');}else toast('No encontrado','w');}
+      if(res.length){showDet(res[0].id);toast(T('ts_found')+': '+res[0].first+' '+res[0].last,'ok');}else toast(T('ts_not_found'),'w');}
     searchOpen=false;
   }
 }
 
 // PDF
 function expPDF(){
-  if(!S.ps.length){toast('Agrega personas primero','w');return;}
-  toast('Abriendo PDF...','ok');
+  if(!S.ps.length){toast(T('ts_add_first'),'w');return;}
+  toast(T('ts_opening_pdf'),'ok');
   setTimeout(function(){
     var win=window.open('','_blank');
     var cards=S.ps.map(function(p){
@@ -2332,7 +2333,7 @@ var LANGS={
     search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente',
     tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí',gen_title:'Generaciones',gen_up:'Arriba',gen_down:'Abajo',focus_set:'Centrado en',
     rel_added_connected:'Familiar agregado y conectado ✓',
-    m_new_person:'Nueva Persona',m_photo:'📷 Foto (opcional)',m_firstname:'Nombre(s) *',m_lastname:'Apellido(s) *',m_nick:'Apodo',m_hebname:'Nombre hebreo',m_gender:'Género',m_gender_none:'Sin especificar',m_gender_m:'Masculino',m_gender_f:'Femenino',m_birth:'Nacimiento (dd/mm/aaaa)',m_place:'Lugar',m_deceased:'🎗️ Ha fallecido',m_death:'Defunción (dd/mm/aaaa)',m_notes:'Notas',m_relation_with:'Relación con',m_rel_parent:'Padre/Madre',m_rel_child:'Hijo/a',m_rel_spouse:'Cónyuge',m_rel_exspouse:'Ex-cónyuge',m_rel_sibling:'Hermano/a',m_cancel:'Cancelar',m_save:'Guardar',m_search_person:'Buscar persona',m_search_tree:'Buscar en el árbol',m_search_ph:'Escribe el nombre...',m_connect:'Conectar',m_save_check:'✓ Guardar',m_skip:'Omitir',m_confirm:'Confirmar',m_close:'Cerrar'},
+    m_new_person:'Nueva Persona',m_photo:'📷 Foto (opcional)',m_firstname:'Nombre(s) *',m_lastname:'Apellido(s) *',m_nick:'Apodo',m_hebname:'Nombre hebreo',m_gender:'Género',m_gender_none:'Sin especificar',m_gender_m:'Masculino',m_gender_f:'Femenino',m_birth:'Nacimiento (dd/mm/aaaa)',m_place:'Lugar',m_deceased:'🎗️ Ha fallecido',m_death:'Defunción (dd/mm/aaaa)',m_notes:'Notas',m_relation_with:'Relación con',m_rel_parent:'Padre/Madre',m_rel_child:'Hijo/a',m_rel_spouse:'Cónyuge',m_rel_exspouse:'Ex-cónyuge',m_rel_sibling:'Hermano/a',m_cancel:'Cancelar',m_save:'Guardar',m_search_person:'Buscar persona',m_search_tree:'Buscar en el árbol',m_search_ph:'Escribe el nombre...',m_connect:'Conectar',m_save_check:'✓ Guardar',m_skip:'Omitir',m_confirm:'Confirmar',m_close:'Cerrar',st_saving:'Guardando...',st_saved:'Guardado',edit_person:'Editar Persona',add_person:'Agregar persona',add_to:'Agregar a',new_person_opt:'Persona nueva',connect_existing:'Conectar existente',ts_welcome:'Bienvenido',ts_unlimited:'acceso ilimitado',ts_guest:'Modo visitante',ts_save_paused:'Guardado pausado - demasiadas operaciones',ts_readonly:'Modo solo lectura',ts_sel_person_rel:'Selecciona persona y relación',ts_no_ref:'Sin persona de referencia',ts_connected:'Conectado',ts_photo_big:'Foto demasiado grande. Máximo 2MB',ts_name_req:'El nombre es obligatorio',ts_last_req:'El apellido es obligatorio',ts_updated:'Actualizado',ts_rel_added_conn:'Familiar agregado y conectado',ts_rel_added:'Familiar agregado',ts_person_added:'Persona agregada',ts_write_namelast:'Escribe nombre y apellido',ts_family_conn:'Familia conectada',ts_deleted:'Eliminado',ts_sel_option:'Selecciona una opción',ts_sib_conn:'Hermano/a conectado',ts_order_birth:'Orden por nacimiento',ts_copied:'Copiado',ts_found:'Encontrado',ts_not_found:'No encontrado',ts_add_first:'Agrega personas primero',ts_opening_pdf:'Abriendo PDF...',ts_login_match:'Inicia sesión para buscar coincidencias',ts_create_acc:'Crea una cuenta para agregar',ts_limit:'Límite de personas. Actualiza tu plan.',ts_focus_set:'Centrado en'},
   en:{dir:'ltr',name:'English',
     rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
     rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
@@ -2345,7 +2346,7 @@ var LANGS={
     search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree',
     tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here',gen_title:'Generations',gen_up:'Up',gen_down:'Down',focus_set:'Centered on',
     rel_added_connected:'Relative added and connected ✓',
-    m_new_person:'New Person',m_photo:'📷 Photo (optional)',m_firstname:'First name(s) *',m_lastname:'Last name(s) *',m_nick:'Nickname',m_hebname:'Hebrew name',m_gender:'Gender',m_gender_none:'Unspecified',m_gender_m:'Male',m_gender_f:'Female',m_birth:'Birth (dd/mm/yyyy)',m_place:'Place',m_deceased:'🎗️ Deceased',m_death:'Death (dd/mm/yyyy)',m_notes:'Notes',m_relation_with:'Relationship with',m_rel_parent:'Parent',m_rel_child:'Child',m_rel_spouse:'Spouse',m_rel_exspouse:'Ex-spouse',m_rel_sibling:'Sibling',m_cancel:'Cancel',m_save:'Save',m_search_person:'Search person',m_search_tree:'Search in tree',m_search_ph:'Type the name...',m_connect:'Connect',m_save_check:'✓ Save',m_skip:'Skip',m_confirm:'Confirm',m_close:'Close'},
+    m_new_person:'New Person',m_photo:'📷 Photo (optional)',m_firstname:'First name(s) *',m_lastname:'Last name(s) *',m_nick:'Nickname',m_hebname:'Hebrew name',m_gender:'Gender',m_gender_none:'Unspecified',m_gender_m:'Male',m_gender_f:'Female',m_birth:'Birth (dd/mm/yyyy)',m_place:'Place',m_deceased:'🎗️ Deceased',m_death:'Death (dd/mm/yyyy)',m_notes:'Notes',m_relation_with:'Relationship with',m_rel_parent:'Parent',m_rel_child:'Child',m_rel_spouse:'Spouse',m_rel_exspouse:'Ex-spouse',m_rel_sibling:'Sibling',m_cancel:'Cancel',m_save:'Save',m_search_person:'Search person',m_search_tree:'Search in tree',m_search_ph:'Type the name...',m_connect:'Connect',m_save_check:'✓ Save',m_skip:'Skip',m_confirm:'Confirm',m_close:'Close',st_saving:'Saving...',st_saved:'Saved',edit_person:'Edit Person',add_person:'Add person',add_to:'Add to',new_person_opt:'New person',connect_existing:'Connect existing',ts_welcome:'Welcome',ts_unlimited:'unlimited access',ts_guest:'Guest mode',ts_save_paused:'Saving paused - too many operations',ts_readonly:'Read-only mode',ts_sel_person_rel:'Select a person and relationship',ts_no_ref:'No reference person',ts_connected:'Connected',ts_photo_big:'Photo too large. Max 2MB',ts_name_req:'First name is required',ts_last_req:'Last name is required',ts_updated:'Updated',ts_rel_added_conn:'Relative added and connected',ts_rel_added:'Relative added',ts_person_added:'Person added',ts_write_namelast:'Enter first and last name',ts_family_conn:'Family connected',ts_deleted:'Deleted',ts_sel_option:'Select an option',ts_sib_conn:'Sibling connected',ts_order_birth:'Ordered by birth',ts_copied:'Copied',ts_found:'Found',ts_not_found:'Not found',ts_add_first:'Add people first',ts_opening_pdf:'Opening PDF...',ts_login_match:'Log in to search for matches',ts_create_acc:'Create an account to add',ts_limit:'People limit. Upgrade your plan.',ts_focus_set:'Centered on'},
   he:{dir:'rtl',name:'עברית',
     rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
     rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
@@ -2358,7 +2359,7 @@ var LANGS={
     search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית',
     tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים',gen_title:'דורות',gen_up:'למעלה',gen_down:'למטה',focus_set:'במרכז',
     rel_added_connected:'קרוב משפחה נוסף וחובר ✓',
-    m_new_person:'אדם חדש',m_photo:'📷 תמונה (אופציונלי)',m_firstname:'שם פרטי *',m_lastname:'שם משפחה *',m_nick:'כינוי',m_hebname:'שם עברי',m_gender:'מגדר',m_gender_none:'לא צוין',m_gender_m:'זכר',m_gender_f:'נקבה',m_birth:'תאריך לידה (dd/mm/yyyy)',m_place:'מקום',m_deceased:'🎗️ נפטר/ה',m_death:'תאריך פטירה (dd/mm/yyyy)',m_notes:'הערות',m_relation_with:'קרבה עם',m_rel_parent:'הורה',m_rel_child:'ילד/ה',m_rel_spouse:'בן/בת זוג',m_rel_exspouse:'גרוש/ה',m_rel_sibling:'אח/אחות',m_cancel:'ביטול',m_save:'שמור',m_search_person:'חפש אדם',m_search_tree:'חפש בעץ',m_search_ph:'הקלד את השם...',m_connect:'חבר',m_save_check:'✓ שמור',m_skip:'דלג',m_confirm:'אשר',m_close:'סגור'}
+    m_new_person:'אדם חדש',m_photo:'📷 תמונה (אופציונלי)',m_firstname:'שם פרטי *',m_lastname:'שם משפחה *',m_nick:'כינוי',m_hebname:'שם עברי',m_gender:'מגדר',m_gender_none:'לא צוין',m_gender_m:'זכר',m_gender_f:'נקבה',m_birth:'תאריך לידה (dd/mm/yyyy)',m_place:'מקום',m_deceased:'🎗️ נפטר/ה',m_death:'תאריך פטירה (dd/mm/yyyy)',m_notes:'הערות',m_relation_with:'קרבה עם',m_rel_parent:'הורה',m_rel_child:'ילד/ה',m_rel_spouse:'בן/בת זוג',m_rel_exspouse:'גרוש/ה',m_rel_sibling:'אח/אחות',m_cancel:'ביטול',m_save:'שמור',m_search_person:'חפש אדם',m_search_tree:'חפש בעץ',m_search_ph:'הקלד את השם...',m_connect:'חבר',m_save_check:'✓ שמור',m_skip:'דלג',m_confirm:'אשר',m_close:'סגור',st_saving:'שומר...',st_saved:'נשמר',edit_person:'עריכת אדם',add_person:'הוסף אדם',add_to:'הוסף ל',new_person_opt:'אדם חדש',connect_existing:'חבר קיים',ts_welcome:'ברוך הבא',ts_unlimited:'גישה ללא הגבלה',ts_guest:'מצב אורח',ts_save_paused:'השמירה הושהתה - יותר מדי פעולות',ts_readonly:'מצב קריאה בלבד',ts_sel_person_rel:'בחר אדם וקרבה',ts_no_ref:'אין אדם ייחוס',ts_connected:'מחובר',ts_photo_big:'התמונה גדולה מדי. מקסימום 2MB',ts_name_req:'שם פרטי הוא חובה',ts_last_req:'שם משפחה הוא חובה',ts_updated:'עודכן',ts_rel_added_conn:'קרוב משפחה נוסף וחובר',ts_rel_added:'קרוב משפחה נוסף',ts_person_added:'אדם נוסף',ts_write_namelast:'הזן שם פרטי ושם משפחה',ts_family_conn:'משפחה חוברה',ts_deleted:'נמחק',ts_sel_option:'בחר אפשרות',ts_sib_conn:'אח/אחות חובר',ts_order_birth:'מסודר לפי לידה',ts_copied:'הועתק',ts_found:'נמצא',ts_not_found:'לא נמצא',ts_add_first:'הוסף אנשים תחילה',ts_opening_pdf:'פותח PDF...',ts_login_match:'התחבר כדי לחפש התאמות',ts_create_acc:'צור חשבון כדי להוסיף',ts_limit:'מגבלת אנשים. שדרג את התוכנית.',ts_focus_set:'במרכז'}
 };
 function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
 // Translate every element carrying a data-i18n key into the current language
@@ -2563,9 +2564,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 2.3 · Iniciado el 30 de abril de 2026',
-    en:'Version 2.3 · Started April 30, 2026',
-    he:'גרסה 2.3 · החל ב-30 באפריל 2026'
+    es:'Versión 2.4 · Iniciado el 30 de abril de 2026',
+    en:'Version 2.4 · Started April 30, 2026',
+    he:'גרסה 2.4 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
@@ -2697,7 +2698,7 @@ function autoReorganize(){
 }
 
 function checkMatches(){
-  if(!fbDb||!S.user||S.user.guest){toast('Inicia sesión para buscar coincidencias','w');return;}
+  if(!fbDb||!S.user||S.user.guest){toast(T('ts_login_match'),'w');return;}
   var myKeys={};
   S.ps.forEach(function(p){
     var yr=p.bdate?(p.bdate.indexOf('/')>=0?p.bdate.split('/')[2]:p.bdate.split('-')[0]):'';
@@ -2868,7 +2869,7 @@ document.addEventListener('touchend',function(){if(MD.active){MD.active=false;au
 
 // INIT
 window.addEventListener('load',function(){
-  console.log('%cE-TREE versión 2.3 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
+  console.log('%cE-TREE versión 2.4 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
   var params=new URLSearchParams(window.location.search);
   if(params.get('share')){
     S.ro=true;S.user={name:'Visitante',email:'guest',photo:'',initial:'V',guest:true};
