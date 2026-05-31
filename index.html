@@ -151,7 +151,7 @@ html{height:100%}
     <span style="font-size:11px;color:#7a7268;white-space:nowrap;flex-shrink:0;margin-left:4px">
       <strong id="stp">0</strong>/<span id="stlim">20</span>
     </span>
-    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v2.4</span>
+    <span style="font-size:10px;color:#b0a89c;white-space:nowrap;flex-shrink:0;margin-left:6px">v2.7</span>
     <div style="margin-left:auto;font-size:11px;color:#7a7268;display:flex;align-items:center;gap:5px;padding:3px 8px;background:#f7f3ee;border-radius:16px;border:1px solid #d4cfc8;flex-shrink:0">
       <span style="width:6px;height:6px;border-radius:50%;background:#5a7a5a;display:inline-block" id="sdot"></span>
       <span id="stx">Listo</span>
@@ -171,6 +171,14 @@ html{height:100%}
     <button class="zb" onclick="zOut()">-</button>
     <button class="zb" onclick="fitView()" style="font-size:13px">&#8864;</button>
     <div id="zpct">100%</div>
+  </div>
+  <div id="over-limit-banner" style="display:none;position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:70;background:#fff4e0;border:1.5px solid #e0b060;border-radius:12px;padding:12px 16px;box-shadow:0 4px 16px rgba(0,0,0,.15);max-width:420px;width:90%;font-size:13px;color:#7a5a20;text-align:center">
+    <div id="over-limit-txt" style="margin-bottom:10px;line-height:1.5"></div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-g" id="over-limit-keep" style="font-size:12px">Reducir</button>
+      <button class="btn" id="over-limit-del" style="font-size:12px;background:#fde8e8;color:#a02020;border:1px solid #f0b8b8">Borrar todo</button>
+      <button class="btn btn-k" id="over-limit-pay" style="font-size:12px">Volver a pagar</button>
+    </div>
   </div>
   <div id="gen-ctrl" style="position:fixed;top:108px;left:12px;z-index:60;background:white;border:1px solid #d4cfc8;border-radius:12px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.08);font-size:11px;color:#5a5248">
     <div style="font-weight:600;margin-bottom:6px;text-align:center" id="gen-title" data-i18n="gen_title">Generaciones</div>
@@ -392,11 +400,11 @@ html{height:100%}
 <!-- CONFIRM DELETE -->
 <div class="overlay" id="delmo" onclick="ovClose(event,'delmo')">
   <div class="modal" style="max-width:320px">
-    <div class="modal-head"><h3>&#191;Eliminar?</h3><button class="modal-close" onclick="closeModal('delmo')">&#x2715;</button></div>
+    <div class="modal-head"><h3 data-i18n="del_title">&#191;Eliminar?</h3><button class="modal-close" onclick="closeModal('delmo')">&#x2715;</button></div>
     <div class="modal-body"><p id="del-txt" style="font-size:14px;color:#7a7268;line-height:1.5"></p></div>
     <div class="modal-foot">
-      <button class="btn btn-k" onclick="closeModal('delmo')">Cancelar</button>
-      <button class="btn" style="background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" id="del-ok">Eliminar</button>
+      <button class="btn btn-k" onclick="closeModal('delmo')" data-i18n="m_cancel">Cancelar</button>
+      <button class="btn" style="background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" id="del-ok" data-i18n="m_delete">Eliminar</button>
     </div>
   </div>
 </div>
@@ -560,7 +568,7 @@ html{height:100%}
     <div class="modal-body" style="text-align:center">
       <div style="font-size:60px;margin-bottom:8px">&#127795;</div>
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;color:#3a3630;margin-bottom:4px">E-TREE</div>
-      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 2.4 &middot; Iniciado el 30 de abril de 2026</div>
+      <div style="font-size:12px;color:#7a7268;margin-bottom:20px" id="about-version">Versión 2.7 &middot; Iniciado el 30 de abril de 2026</div>
       <div style="background:#f7f3ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:12px;color:#7a7268;margin-bottom:4px" id="about-desc-label">Descripción</div>
         <div style="font-size:13px;color:#3a3630;line-height:1.6" id="about-desc">
@@ -630,6 +638,8 @@ var PLANS = {free:20, personal:200, familiar:500, admin:99999};
 var RL = {parent:'Padre/Madre',child:'Hijo/a',spouse:'C\u00f3nyuge',
   'spouse-div':'Ex-c\u00f3nyuge',sibling:'Hermano/a',grandparent:'Abuelo/a',
   grandchild:'Nieto/a',uncle:'T\u00edo/a',cousin:'Primo/a'};
+var RLKEY = {parent:'rl_parent',child:'rl_child',spouse:'rl_spouse',
+  'spouse-div':'rl_exspouse',sibling:'rl_sibling'};
 var CW=134, CMH=80, CBH=152, LC='#c4a35a';
 var GAP_V=230, GAP_H=20;
 
@@ -690,6 +700,39 @@ function getLimit(){
   if(S.user.plan==='familiar')return PLANS.familiar;
   if(S.user.plan==='personal')return PLANS.personal;
   return PLANS.free;
+}
+
+// Detect if the user has MORE people than their current plan allows
+// (e.g. they downgraded from paid to free). If so, enter "reduce mode":
+// the tree is view+delete only (no adding) until they get under the limit.
+function checkOverLimit(){
+  var banner=$('over-limit-banner');
+  if(!banner)return;
+  if(!S.user||S.user.guest||S.user.email===ADMIN){banner.style.display='none';S.overLimit=false;return;}
+  var lim=getLimit();
+  if(S.ps.length>lim){
+    S.overLimit=true;
+    var excess=S.ps.length-lim;
+    var txt=(LANG==='he')
+      ? ('התוכנית שלך היא חינמית ('+lim+' אנשים), אך יש לך '+S.ps.length+'. מחק '+excess+' כדי להמשיך, או מחק את כל העץ, או חזור לתשלום.')
+      : (LANG==='en')
+      ? ('Your plan is free ('+lim+' people) but you have '+S.ps.length+'. Delete '+excess+' to continue, delete the whole tree, or resume payment.')
+      : ('Tu plan es gratuito ('+lim+' personas) pero tienes '+S.ps.length+'. Elimina '+excess+' para continuar, borra todo el árbol, o vuelve a pagar.');
+    $('over-limit-txt').textContent=txt;
+    $('over-limit-keep').textContent=(LANG==='he')?'הקטן':(LANG==='en')?'Reduce':'Reducir';
+    $('over-limit-del').textContent=(LANG==='he')?'מחק הכל':(LANG==='en')?'Delete all':'Borrar todo';
+    $('over-limit-pay').textContent=(LANG==='he')?'חזור לתשלום':(LANG==='en')?'Resume payment':'Volver a pagar';
+    banner.style.display='block';
+    $('over-limit-keep').onclick=function(){banner.style.display='none';toast((LANG==='he')?'מחק אנשים עד שתגיע למגבלה':(LANG==='en')?'Delete people until you reach the limit':'Borra personas hasta llegar al límite','w');};
+    $('over-limit-del').onclick=function(){
+      showConfirm(T('del_title'),(LANG==='he')?'למחוק את כל העץ? פעולה זו בלתי הפיכה.':(LANG==='en')?'Delete the entire tree? This cannot be undone.':'¿Borrar todo el árbol? Esta acción no se puede deshacer.',
+        function(){S.ps=[];S.rs=[];S.collapsed={};S.focusId=null;banner.style.display='none';renderAll();autoSave();toast(T('ts_deleted'),'ok');});
+    };
+    $('over-limit-pay').onclick=function(){openModal('plansmo');};
+  } else {
+    S.overLimit=false;
+    banner.style.display='none';
+  }
 }
 
 // LOGIN
@@ -914,6 +957,7 @@ function smartPos(relType,anchorId){
 // ADD MENU
 function openAddMenu(aid){
   if(S.ro){toast(T('ts_readonly'),'w');return;}
+  if(S.overLimit){toast((LANG==='he')?'הקטן את העץ תחילה':(LANG==='en')?'Reduce your tree first':'Reduce tu árbol primero','w');return;}
   var lim=getLimit();
   if(S.ps.length>=lim){
     toast(lim===0?T('ts_create_acc'):T('ts_limit'),'w');
@@ -1459,7 +1503,8 @@ function askSpouseChildren(spouseId,anchorId){
 function confirmDel(id){
   var p=S.ps.find(function(x){return x.id===id;});if(!p)return;
   var rc=S.rs.filter(function(r){return r.f===id||r.t===id;}).length;
-  $('del-txt').textContent='\u00bfEliminar a "'+p.first+' '+p.last+'"? Se eliminar\u00e1n '+rc+' conexiones.';
+  $('del-txt').textContent=T('del_confirm')+' "'+p.first+' '+p.last+'"? '+T('del_connections')+' '+rc+' '+T('del_conn_word')+'.';
+  var dh=document.querySelector('#delmo h3'); if(dh)dh.textContent=T('del_title');
   $('del-ok').onclick=function(){
     S.ps=S.ps.filter(function(x){return x.id!==id;});
     S.rs=S.rs.filter(function(r){return r.f!==id&&r.t!==id;});
@@ -1928,6 +1973,7 @@ function renderAll(){
   var em=$('empty');
   if(!S.ps.length){em.classList.remove('hidden');$('tree-svg').innerHTML='';canvas.style.width=canvas.style.height='';$('stp').textContent='0';return;}
   em.classList.add('hidden');$('stp').textContent=S.ps.length;updLim();
+  checkOverLimit();
 
   // Default focus = first person if not set
   if(!S.focusId||!S.ps.find(function(p){return p.id===S.focusId;})){S.focusId=S.ps[0].id;}
@@ -2140,6 +2186,7 @@ function mkDrag(card,p){
 // DETAIL
 function showDet(id){
   var p=S.ps.find(function(x){return x.id===id;});if(!p)return;
+  S.detId=id;
   var dp=$('detail');
   var gc=p.deceased?'d':(p.gender==='F'?'f':'');
   var ag=calcAge(p.bdate,p.ddate,p.deceased);
@@ -2148,31 +2195,31 @@ function showDet(id){
   rels.forEach(function(r){
     var oid=r.f===id?r.t:r.f;
     var o=S.ps.find(function(p){return p.id===oid;});
-    if(o)pills+='<span class="rel-pill" onclick="showDet(\''+oid+'\')">'+o.first+' '+o.last+' \u00b7 '+(RL[r.type]||r.type)+'</span>';
+    if(o)pills+='<span class="rel-pill" onclick="showDet(\''+oid+'\')">'+o.first+' '+o.last+' \u00b7 '+(T(RLKEY[r.type])||RL[r.type]||r.type)+'</span>';
   });
   var ph=p.photo?'<img src="'+p.photo+'" alt="">':(p.gender==='F'?'&#128105;':(p.deceased?'&#128116;':'&#128104;'));
   var html='<div class="dp-head"><div class="dp-thumb '+gc+'">'+ph+'</div><div>';
   html+='<div class="dp-name">'+p.first+' '+p.last+(p.nick?' ('+p.nick+')':'')+'</div>';
   if(p.heb)html+='<div style="font-size:12px;color:#7a7268">'+p.heb+'</div>';
-  html+='<div class="dp-status">'+(p.deceased?'Fallecido/a':'Con vida')+(ag?' \u00b7 '+ag:'')+'</div></div></div>';
-  html+='<div class="dp-sec"><h4>Datos</h4>';
-  if(p.bdate)html+='<div class="dp-row"><span>Nacimiento</span><span>'+fmt(p.bdate)+'</span></div>';
-  if(p.bplace)html+='<div class="dp-row"><span>Lugar</span><span>'+p.bplace+'</span></div>';
-  if(ag)html+='<div class="dp-row"><span>Edad</span><span>'+ag+'</span></div>';
-  if(p.deceased&&p.ddate)html+='<div class="dp-row"><span>Defunci\u00f3n</span><span>'+fmt(p.ddate)+'</span></div>';
+  html+='<div class="dp-status">'+(p.deceased?T('dp_deceased'):T('dp_alive'))+(ag?' \u00b7 '+ag:'')+'</div></div></div>';
+  html+='<div class="dp-sec"><h4>'+T('dp_data')+'</h4>';
+  if(p.bdate)html+='<div class="dp-row"><span>'+T('dp_birth')+'</span><span>'+fmt(p.bdate)+'</span></div>';
+  if(p.bplace)html+='<div class="dp-row"><span>'+T('dp_place')+'</span><span>'+p.bplace+'</span></div>';
+  if(ag)html+='<div class="dp-row"><span>'+T('dp_age')+'</span><span>'+ag+'</span></div>';
+  if(p.deceased&&p.ddate)html+='<div class="dp-row"><span>'+T('dp_death')+'</span><span>'+fmt(p.ddate)+'</span></div>';
   html+='</div>';
-  if(rels.length)html+='<div class="dp-sec"><h4>Familiares ('+rels.length+')</h4><div>'+pills+'</div></div>';
-  if(p.notes)html+='<div class="dp-sec"><h4>Notas</h4><p style="font-size:12px;color:#7a7268;line-height:1.5">'+p.notes+'</p></div>';
+  if(rels.length)html+='<div class="dp-sec"><h4>'+T('dp_family')+' ('+rels.length+')</h4><div>'+pills+'</div></div>';
+  if(p.notes)html+='<div class="dp-sec"><h4>'+T('dp_notes')+'</h4><p style="font-size:12px;color:#7a7268;line-height:1.5">'+p.notes+'</p></div>';
   html+='<div class="dp-actions">';
-  if(!S.ro)html+='<button class="btn btn-o" style="font-size:11px;padding:5px 10px" onclick="openEdit(\''+id+'\')">&#9999; Editar</button>';
-  if(!S.ro)html+='<button class="btn btn-k" style="font-size:11px;padding:5px 10px" onclick="openAddMenu(\''+id+'\')">&#65291; Familiar</button>';
-  if(!S.ro)html+='<button class="btn" style="font-size:11px;padding:5px 10px;background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" onclick="confirmDel(\''+id+'\')">&#128465;</button>';
+  if(!S.ro)html+='<button class="btn btn-o" style="font-size:11px;padding:5px 10px" onclick="openEdit(\''+id+'\')">&#9999; '+T('dp_edit')+'</button>';
+  if(!S.ro)html+='<button class="btn btn-k" style="font-size:11px;padding:5px 10px" onclick="openAddMenu(\''+id+'\')">&#65291; '+T('dp_relative')+'</button>';
+  if(!S.ro)html+='<button class="btn" style="font-size:11px;padding:5px 10px;background:#fde8e8;color:#a02020;border:1px solid #f0b8b8" onclick="confirmDel(\''+id+'\')">&#128465; '+T('m_delete')+'</button>';
   html+='<button class="btn btn-k" style="font-size:11px;padding:5px 10px;margin-left:auto" onclick="closeDet()">&#x2715;</button></div>';
   dp.innerHTML=html;
   dp.classList.add('open');
 }
 
-function closeDet(){$('detail').classList.remove('open');document.querySelectorAll('.card').forEach(function(c){c.classList.remove('active');});}
+function closeDet(){S.detId=null;$('detail').classList.remove('open');document.querySelectorAll('.card').forEach(function(c){c.classList.remove('active');});}
 
 // ZOOM
 function zIn(){S.zoom=Math.min(2.5,Math.round((S.zoom+0.15)*100)/100);apZ();}
@@ -2333,7 +2380,7 @@ var LANGS={
     search_placeholder:'Buscar persona por nombre:',login_title:'Tu historia familiar, preservada para siempre.',login_btn:'Entrar a E-TREE',login_guest:'Continuar sin cuenta',add:'＋ Agregar',save:'💾 Guardar',add_label:'Agregar',save_label:'Guardar',tip_add:'Agregar persona',tip_save:'Guardar árbol en la nube',tip_search:'Buscar persona y parentesco',tip_pdf:'Exportar a PDF',tip_fit:'Ajustar vista',tip_stats:'Estadísticas',tip_help:'Ayuda',tip_plans:'Planes y precios',tip_match:'Buscar en otros árboles',tip_about:'Acerca de E-TREE',tip_reorg:'Reorganizar árbol automáticamente',
     tip_view:'Ver detalles',tip_add_rel:'Agregar familiar',tip_edit:'Editar datos',tip_delete:'Eliminar ficha',tip_collapse:'Ocultar/mostrar descendientes',hidden_indicator:'Hay personas ocultas aquí',gen_title:'Generaciones',gen_up:'Arriba',gen_down:'Abajo',focus_set:'Centrado en',
     rel_added_connected:'Familiar agregado y conectado ✓',
-    m_new_person:'Nueva Persona',m_photo:'📷 Foto (opcional)',m_firstname:'Nombre(s) *',m_lastname:'Apellido(s) *',m_nick:'Apodo',m_hebname:'Nombre hebreo',m_gender:'Género',m_gender_none:'Sin especificar',m_gender_m:'Masculino',m_gender_f:'Femenino',m_birth:'Nacimiento (dd/mm/aaaa)',m_place:'Lugar',m_deceased:'🎗️ Ha fallecido',m_death:'Defunción (dd/mm/aaaa)',m_notes:'Notas',m_relation_with:'Relación con',m_rel_parent:'Padre/Madre',m_rel_child:'Hijo/a',m_rel_spouse:'Cónyuge',m_rel_exspouse:'Ex-cónyuge',m_rel_sibling:'Hermano/a',m_cancel:'Cancelar',m_save:'Guardar',m_search_person:'Buscar persona',m_search_tree:'Buscar en el árbol',m_search_ph:'Escribe el nombre...',m_connect:'Conectar',m_save_check:'✓ Guardar',m_skip:'Omitir',m_confirm:'Confirmar',m_close:'Cerrar',st_saving:'Guardando...',st_saved:'Guardado',edit_person:'Editar Persona',add_person:'Agregar persona',add_to:'Agregar a',new_person_opt:'Persona nueva',connect_existing:'Conectar existente',ts_welcome:'Bienvenido',ts_unlimited:'acceso ilimitado',ts_guest:'Modo visitante',ts_save_paused:'Guardado pausado - demasiadas operaciones',ts_readonly:'Modo solo lectura',ts_sel_person_rel:'Selecciona persona y relación',ts_no_ref:'Sin persona de referencia',ts_connected:'Conectado',ts_photo_big:'Foto demasiado grande. Máximo 2MB',ts_name_req:'El nombre es obligatorio',ts_last_req:'El apellido es obligatorio',ts_updated:'Actualizado',ts_rel_added_conn:'Familiar agregado y conectado',ts_rel_added:'Familiar agregado',ts_person_added:'Persona agregada',ts_write_namelast:'Escribe nombre y apellido',ts_family_conn:'Familia conectada',ts_deleted:'Eliminado',ts_sel_option:'Selecciona una opción',ts_sib_conn:'Hermano/a conectado',ts_order_birth:'Orden por nacimiento',ts_copied:'Copiado',ts_found:'Encontrado',ts_not_found:'No encontrado',ts_add_first:'Agrega personas primero',ts_opening_pdf:'Abriendo PDF...',ts_login_match:'Inicia sesión para buscar coincidencias',ts_create_acc:'Crea una cuenta para agregar',ts_limit:'Límite de personas. Actualiza tu plan.',ts_focus_set:'Centrado en'},
+    m_new_person:'Nueva Persona',m_photo:'📷 Foto (opcional)',m_firstname:'Nombre(s) *',m_lastname:'Apellido(s) *',m_nick:'Apodo',m_hebname:'Nombre hebreo',m_gender:'Género',m_gender_none:'Sin especificar',m_gender_m:'Masculino',m_gender_f:'Femenino',m_birth:'Nacimiento (dd/mm/aaaa)',m_place:'Lugar',m_deceased:'🎗️ Ha fallecido',m_death:'Defunción (dd/mm/aaaa)',m_notes:'Notas',m_relation_with:'Relación con',m_rel_parent:'Padre/Madre',m_rel_child:'Hijo/a',m_rel_spouse:'Cónyuge',m_rel_exspouse:'Ex-cónyuge',m_rel_sibling:'Hermano/a',m_cancel:'Cancelar',m_save:'Guardar',m_search_person:'Buscar persona',m_search_tree:'Buscar en el árbol',m_search_ph:'Escribe el nombre...',m_connect:'Conectar',m_save_check:'✓ Guardar',m_skip:'Omitir',m_confirm:'Confirmar',m_close:'Cerrar',st_saving:'Guardando...',st_saved:'Guardado',edit_person:'Editar Persona',add_person:'Agregar persona',add_to:'Agregar a',new_person_opt:'Persona nueva',connect_existing:'Conectar existente',ts_welcome:'Bienvenido',ts_unlimited:'acceso ilimitado',ts_guest:'Modo visitante',ts_save_paused:'Guardado pausado - demasiadas operaciones',ts_readonly:'Modo solo lectura',ts_sel_person_rel:'Selecciona persona y relación',ts_no_ref:'Sin persona de referencia',ts_connected:'Conectado',ts_photo_big:'Foto demasiado grande. Máximo 2MB',ts_name_req:'El nombre es obligatorio',ts_last_req:'El apellido es obligatorio',ts_updated:'Actualizado',ts_rel_added_conn:'Familiar agregado y conectado',ts_rel_added:'Familiar agregado',ts_person_added:'Persona agregada',ts_write_namelast:'Escribe nombre y apellido',ts_family_conn:'Familia conectada',ts_deleted:'Eliminado',ts_sel_option:'Selecciona una opción',ts_sib_conn:'Hermano/a conectado',ts_order_birth:'Orden por nacimiento',ts_copied:'Copiado',ts_found:'Encontrado',ts_not_found:'No encontrado',ts_add_first:'Agrega personas primero',ts_opening_pdf:'Abriendo PDF...',ts_login_match:'Inicia sesión para buscar coincidencias',ts_create_acc:'Crea una cuenta para agregar',ts_limit:'Límite de personas. Actualiza tu plan.',ts_focus_set:'Centrado en',dp_deceased:'Fallecido/a',dp_alive:'Con vida',dp_data:'Datos',dp_birth:'Nacimiento',dp_place:'Lugar',dp_age:'Edad',dp_death:'Defunción',dp_family:'Familiares',dp_notes:'Notas',dp_edit:'Editar',dp_relative:'Familiar',rl_parent:'Padre/Madre',rl_child:'Hijo/a',rl_spouse:'Cónyuge',rl_exspouse:'Ex-cónyuge',rl_sibling:'Hermano/a',m_delete:'Eliminar',del_title:'¿Eliminar?',del_confirm:'¿Eliminar a',del_connections:'Se eliminarán',del_conn_word:'conexiones'},
   en:{dir:'ltr',name:'English',
     rel_father:'Father',rel_mother:'Mother',rel_son:'Son',rel_daughter:'Daughter',
     rel_brother:'Brother',rel_sister:'Sister',rel_grandfather:'Grandfather',rel_grandmother:'Grandmother',
@@ -2346,7 +2393,7 @@ var LANGS={
     search_placeholder:'Search person by name:',login_title:'Your family history, preserved forever.',login_btn:'Enter E-TREE',login_guest:'Continue without account',add:'＋ Add',save:'💾 Save',add_label:'Add',save_label:'Save',tip_add:'Add person',tip_save:'Save tree to cloud',tip_search:'Search person & relationship',tip_pdf:'Export to PDF',tip_fit:'Fit view',tip_stats:'Statistics',tip_help:'Help',tip_plans:'Plans & pricing',tip_match:'Search in other trees',tip_about:'About E-TREE',tip_reorg:'Auto-organize tree',
     tip_view:'View details',tip_add_rel:'Add relative',tip_edit:'Edit data',tip_delete:'Delete card',tip_collapse:'Hide/show descendants',hidden_indicator:'Hidden people here',gen_title:'Generations',gen_up:'Up',gen_down:'Down',focus_set:'Centered on',
     rel_added_connected:'Relative added and connected ✓',
-    m_new_person:'New Person',m_photo:'📷 Photo (optional)',m_firstname:'First name(s) *',m_lastname:'Last name(s) *',m_nick:'Nickname',m_hebname:'Hebrew name',m_gender:'Gender',m_gender_none:'Unspecified',m_gender_m:'Male',m_gender_f:'Female',m_birth:'Birth (dd/mm/yyyy)',m_place:'Place',m_deceased:'🎗️ Deceased',m_death:'Death (dd/mm/yyyy)',m_notes:'Notes',m_relation_with:'Relationship with',m_rel_parent:'Parent',m_rel_child:'Child',m_rel_spouse:'Spouse',m_rel_exspouse:'Ex-spouse',m_rel_sibling:'Sibling',m_cancel:'Cancel',m_save:'Save',m_search_person:'Search person',m_search_tree:'Search in tree',m_search_ph:'Type the name...',m_connect:'Connect',m_save_check:'✓ Save',m_skip:'Skip',m_confirm:'Confirm',m_close:'Close',st_saving:'Saving...',st_saved:'Saved',edit_person:'Edit Person',add_person:'Add person',add_to:'Add to',new_person_opt:'New person',connect_existing:'Connect existing',ts_welcome:'Welcome',ts_unlimited:'unlimited access',ts_guest:'Guest mode',ts_save_paused:'Saving paused - too many operations',ts_readonly:'Read-only mode',ts_sel_person_rel:'Select a person and relationship',ts_no_ref:'No reference person',ts_connected:'Connected',ts_photo_big:'Photo too large. Max 2MB',ts_name_req:'First name is required',ts_last_req:'Last name is required',ts_updated:'Updated',ts_rel_added_conn:'Relative added and connected',ts_rel_added:'Relative added',ts_person_added:'Person added',ts_write_namelast:'Enter first and last name',ts_family_conn:'Family connected',ts_deleted:'Deleted',ts_sel_option:'Select an option',ts_sib_conn:'Sibling connected',ts_order_birth:'Ordered by birth',ts_copied:'Copied',ts_found:'Found',ts_not_found:'Not found',ts_add_first:'Add people first',ts_opening_pdf:'Opening PDF...',ts_login_match:'Log in to search for matches',ts_create_acc:'Create an account to add',ts_limit:'People limit. Upgrade your plan.',ts_focus_set:'Centered on'},
+    m_new_person:'New Person',m_photo:'📷 Photo (optional)',m_firstname:'First name(s) *',m_lastname:'Last name(s) *',m_nick:'Nickname',m_hebname:'Hebrew name',m_gender:'Gender',m_gender_none:'Unspecified',m_gender_m:'Male',m_gender_f:'Female',m_birth:'Birth (dd/mm/yyyy)',m_place:'Place',m_deceased:'🎗️ Deceased',m_death:'Death (dd/mm/yyyy)',m_notes:'Notes',m_relation_with:'Relationship with',m_rel_parent:'Parent',m_rel_child:'Child',m_rel_spouse:'Spouse',m_rel_exspouse:'Ex-spouse',m_rel_sibling:'Sibling',m_cancel:'Cancel',m_save:'Save',m_search_person:'Search person',m_search_tree:'Search in tree',m_search_ph:'Type the name...',m_connect:'Connect',m_save_check:'✓ Save',m_skip:'Skip',m_confirm:'Confirm',m_close:'Close',st_saving:'Saving...',st_saved:'Saved',edit_person:'Edit Person',add_person:'Add person',add_to:'Add to',new_person_opt:'New person',connect_existing:'Connect existing',ts_welcome:'Welcome',ts_unlimited:'unlimited access',ts_guest:'Guest mode',ts_save_paused:'Saving paused - too many operations',ts_readonly:'Read-only mode',ts_sel_person_rel:'Select a person and relationship',ts_no_ref:'No reference person',ts_connected:'Connected',ts_photo_big:'Photo too large. Max 2MB',ts_name_req:'First name is required',ts_last_req:'Last name is required',ts_updated:'Updated',ts_rel_added_conn:'Relative added and connected',ts_rel_added:'Relative added',ts_person_added:'Person added',ts_write_namelast:'Enter first and last name',ts_family_conn:'Family connected',ts_deleted:'Deleted',ts_sel_option:'Select an option',ts_sib_conn:'Sibling connected',ts_order_birth:'Ordered by birth',ts_copied:'Copied',ts_found:'Found',ts_not_found:'Not found',ts_add_first:'Add people first',ts_opening_pdf:'Opening PDF...',ts_login_match:'Log in to search for matches',ts_create_acc:'Create an account to add',ts_limit:'People limit. Upgrade your plan.',ts_focus_set:'Centered on',dp_deceased:'Deceased',dp_alive:'Living',dp_data:'Details',dp_birth:'Birth',dp_place:'Place',dp_age:'Age',dp_death:'Death',dp_family:'Relatives',dp_notes:'Notes',dp_edit:'Edit',dp_relative:'Relative',rl_parent:'Parent',rl_child:'Child',rl_spouse:'Spouse',rl_exspouse:'Ex-spouse',rl_sibling:'Sibling',m_delete:'Delete',del_title:'Delete?',del_confirm:'Delete',del_connections:'Will remove',del_conn_word:'connections'},
   he:{dir:'rtl',name:'עברית',
     rel_father:'אב',rel_mother:'אם',rel_son:'בן',rel_daughter:'בת',
     rel_brother:'אח',rel_sister:'אחות',rel_grandfather:'סבא',rel_grandmother:'סבתא',
@@ -2359,7 +2406,7 @@ var LANGS={
     search_placeholder:'חיפוש לפי שם:',login_title:'ההיסטוריה המשפחתית שלך, שמורה לנצח.',login_btn:'כניסה ל-E-TREE',login_guest:'המשך ללא חשבון',add:'＋ הוסף',save:'💾 שמור',add_label:'הוסף',save_label:'שמור',tip_add:'הוסף אדם',tip_save:'שמור עץ בענן',tip_search:'חיפוש אדם וקרבה',tip_pdf:'ייצא ל-PDF',tip_fit:'התאם תצוגה',tip_stats:'סטטיסטיקה',tip_help:'עזרה',tip_plans:'תוכניות ומחירים',tip_match:'חיפוש בעצים אחרים',tip_about:'אודות E-TREE',tip_reorg:'ארגן עץ אוטומטית',
     tip_view:'הצג פרטים',tip_add_rel:'הוסף קרוב משפחה',tip_edit:'ערוך נתונים',tip_delete:'מחק כרטיס',tip_collapse:'הסתר/הצג צאצאים',hidden_indicator:'יש כאן אנשים מוסתרים',gen_title:'דורות',gen_up:'למעלה',gen_down:'למטה',focus_set:'במרכז',
     rel_added_connected:'קרוב משפחה נוסף וחובר ✓',
-    m_new_person:'אדם חדש',m_photo:'📷 תמונה (אופציונלי)',m_firstname:'שם פרטי *',m_lastname:'שם משפחה *',m_nick:'כינוי',m_hebname:'שם עברי',m_gender:'מגדר',m_gender_none:'לא צוין',m_gender_m:'זכר',m_gender_f:'נקבה',m_birth:'תאריך לידה (dd/mm/yyyy)',m_place:'מקום',m_deceased:'🎗️ נפטר/ה',m_death:'תאריך פטירה (dd/mm/yyyy)',m_notes:'הערות',m_relation_with:'קרבה עם',m_rel_parent:'הורה',m_rel_child:'ילד/ה',m_rel_spouse:'בן/בת זוג',m_rel_exspouse:'גרוש/ה',m_rel_sibling:'אח/אחות',m_cancel:'ביטול',m_save:'שמור',m_search_person:'חפש אדם',m_search_tree:'חפש בעץ',m_search_ph:'הקלד את השם...',m_connect:'חבר',m_save_check:'✓ שמור',m_skip:'דלג',m_confirm:'אשר',m_close:'סגור',st_saving:'שומר...',st_saved:'נשמר',edit_person:'עריכת אדם',add_person:'הוסף אדם',add_to:'הוסף ל',new_person_opt:'אדם חדש',connect_existing:'חבר קיים',ts_welcome:'ברוך הבא',ts_unlimited:'גישה ללא הגבלה',ts_guest:'מצב אורח',ts_save_paused:'השמירה הושהתה - יותר מדי פעולות',ts_readonly:'מצב קריאה בלבד',ts_sel_person_rel:'בחר אדם וקרבה',ts_no_ref:'אין אדם ייחוס',ts_connected:'מחובר',ts_photo_big:'התמונה גדולה מדי. מקסימום 2MB',ts_name_req:'שם פרטי הוא חובה',ts_last_req:'שם משפחה הוא חובה',ts_updated:'עודכן',ts_rel_added_conn:'קרוב משפחה נוסף וחובר',ts_rel_added:'קרוב משפחה נוסף',ts_person_added:'אדם נוסף',ts_write_namelast:'הזן שם פרטי ושם משפחה',ts_family_conn:'משפחה חוברה',ts_deleted:'נמחק',ts_sel_option:'בחר אפשרות',ts_sib_conn:'אח/אחות חובר',ts_order_birth:'מסודר לפי לידה',ts_copied:'הועתק',ts_found:'נמצא',ts_not_found:'לא נמצא',ts_add_first:'הוסף אנשים תחילה',ts_opening_pdf:'פותח PDF...',ts_login_match:'התחבר כדי לחפש התאמות',ts_create_acc:'צור חשבון כדי להוסיף',ts_limit:'מגבלת אנשים. שדרג את התוכנית.',ts_focus_set:'במרכז'}
+    m_new_person:'אדם חדש',m_photo:'📷 תמונה (אופציונלי)',m_firstname:'שם פרטי *',m_lastname:'שם משפחה *',m_nick:'כינוי',m_hebname:'שם עברי',m_gender:'מגדר',m_gender_none:'לא צוין',m_gender_m:'זכר',m_gender_f:'נקבה',m_birth:'תאריך לידה (dd/mm/yyyy)',m_place:'מקום',m_deceased:'🎗️ נפטר/ה',m_death:'תאריך פטירה (dd/mm/yyyy)',m_notes:'הערות',m_relation_with:'קרבה עם',m_rel_parent:'הורה',m_rel_child:'ילד/ה',m_rel_spouse:'בן/בת זוג',m_rel_exspouse:'גרוש/ה',m_rel_sibling:'אח/אחות',m_cancel:'ביטול',m_save:'שמור',m_search_person:'חפש אדם',m_search_tree:'חפש בעץ',m_search_ph:'הקלד את השם...',m_connect:'חבר',m_save_check:'✓ שמור',m_skip:'דלג',m_confirm:'אשר',m_close:'סגור',st_saving:'שומר...',st_saved:'נשמר',edit_person:'עריכת אדם',add_person:'הוסף אדם',add_to:'הוסף ל',new_person_opt:'אדם חדש',connect_existing:'חבר קיים',ts_welcome:'ברוך הבא',ts_unlimited:'גישה ללא הגבלה',ts_guest:'מצב אורח',ts_save_paused:'השמירה הושהתה - יותר מדי פעולות',ts_readonly:'מצב קריאה בלבד',ts_sel_person_rel:'בחר אדם וקרבה',ts_no_ref:'אין אדם ייחוס',ts_connected:'מחובר',ts_photo_big:'התמונה גדולה מדי. מקסימום 2MB',ts_name_req:'שם פרטי הוא חובה',ts_last_req:'שם משפחה הוא חובה',ts_updated:'עודכן',ts_rel_added_conn:'קרוב משפחה נוסף וחובר',ts_rel_added:'קרוב משפחה נוסף',ts_person_added:'אדם נוסף',ts_write_namelast:'הזן שם פרטי ושם משפחה',ts_family_conn:'משפחה חוברה',ts_deleted:'נמחק',ts_sel_option:'בחר אפשרות',ts_sib_conn:'אח/אחות חובר',ts_order_birth:'מסודר לפי לידה',ts_copied:'הועתק',ts_found:'נמצא',ts_not_found:'לא נמצא',ts_add_first:'הוסף אנשים תחילה',ts_opening_pdf:'פותח PDF...',ts_login_match:'התחבר כדי לחפש התאמות',ts_create_acc:'צור חשבון כדי להוסיף',ts_limit:'מגבלת אנשים. שדרג את התוכנית.',ts_focus_set:'במרכז',dp_deceased:'נפטר/ה',dp_alive:'בחיים',dp_data:'פרטים',dp_birth:'לידה',dp_place:'מקום',dp_age:'גיל',dp_death:'פטירה',dp_family:'קרובי משפחה',dp_notes:'הערות',dp_edit:'ערוך',dp_relative:'קרוב משפחה',rl_parent:'הורה',rl_child:'ילד/ה',rl_spouse:'בן/בת זוג',rl_exspouse:'גרוש/ה',rl_sibling:'אח/אחות',m_delete:'מחק',del_title:'למחוק?',del_confirm:'למחוק את',del_connections:'יימחקו',del_conn_word:'קשרים'}
 };
 function T(k){return(LANGS[LANG]||LANGS.es)[k]||k;}
 // Translate every element carrying a data-i18n key into the current language
@@ -2393,6 +2440,10 @@ function setLang(lang){
   }
   // Re-render tree so card tooltips/badges pick up the new language
   if($('app')&&$('app').style.display!=='none'&&S.ps.length){renderAll();}
+  // Refresh the open detail panel so its labels translate too
+  if(S.detId&&$('detail')&&$('detail').classList.contains('open')){
+    if(S.ps.find(function(p){return p.id===S.detId;}))showDet(S.detId);
+  }
 }
 
 function setLangLogin(lang){
@@ -2564,9 +2615,9 @@ function openAbout(){
     he:'© 2026 Ilan Bar Lev. כל הזכויות שמורות.'
   };
   var startDates={
-    es:'Versión 2.4 · Iniciado el 30 de abril de 2026',
-    en:'Version 2.4 · Started April 30, 2026',
-    he:'גרסה 2.4 · החל ב-30 באפריל 2026'
+    es:'Versión 2.7 · Iniciado el 30 de abril de 2026',
+    en:'Version 2.7 · Started April 30, 2026',
+    he:'גרסה 2.7 · החל ב-30 באפריל 2026'
   };
   var elV=$('about-version');if(elV)elV.textContent=startDates[LANG]||startDates.es;
   var closeBtns={es:'Cerrar',en:'Close',he:'סגור'};
@@ -2869,7 +2920,7 @@ document.addEventListener('touchend',function(){if(MD.active){MD.active=false;au
 
 // INIT
 window.addEventListener('load',function(){
-  console.log('%cE-TREE versión 2.4 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
+  console.log('%cE-TREE versión 2.7 cargada ✓','color:#5a7a5a;font-weight:bold;font-size:14px');
   var params=new URLSearchParams(window.location.search);
   if(params.get('share')){
     S.ro=true;S.user={name:'Visitante',email:'guest',photo:'',initial:'V',guest:true};
